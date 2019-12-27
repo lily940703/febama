@@ -212,3 +212,14 @@ y_hat_output
 # [1]  82.82455  87.38487  91.34578  97.56553 101.35953 106.73193
 
 ```
+## next work
+* model 1  arima  
+* model 2  ETS 
+### questions
+* Acceptance probability is very small in MCMC, how to improve the proposal
+* How to select the optimization algorithm
+* The PDF of arima and ETS
+* Model selection and parameter estimation
+
+
+
