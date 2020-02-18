@@ -95,5 +95,45 @@ mase_err       0.554758  0.5524324  0.5523294  0.5598119  0.5724977
 smape_err      5.398744  5.3777053  5.3708209  5.3339046  5.6922742
 log_score     -6.667574 -6.6574870 -6.6399594 -6.6942272 -6.6775508
 ```
+# Discuss
+Plot the histogram of the weights in the first two methods.
 
-log
+Select the data with the highest frequency in the histogram of the two methods, that is, the data with weight less than or equal to 0.1, and calculate the performance of the different methods in these data. However, the results imply that SA is still the best.
+* the optimal pool
+```
+optim_select<-c()
+for (i in 1:1000){
+  if(M4_q1[[i]]$w_optim<=0.1){
+    optim_select<-c(optim_select,i)
+  }
+}
+
+> length(optim_select)
+[1] 361
+```
+```
+            y_hat_w    average   ari_fore   ets_fore
+mase_err   0.492517  0.4888102  0.4933187  0.5124499
+smape_err  5.086152  5.0111169  5.1087485  5.4000207
+log_score -6.547171 -6.5175400 -6.5483020 -6.5666039
+```
+* feature based
+```
+feature_select<-c()
+for (i in 1:1000){
+  if(M4_q1[[i]]$w_feature<=0.1){
+    feature_select<-c(feature_select,i)
+  }
+}
+
+> length(feature_select)
+[1] 442
+```
+```
+          y_hat_feature     average   ari_fore   ets_fore
+mase_err      0.4855252   0.4829906  0.4861025  0.5076936
+smape_err     4.5334408   4.5577660  4.5385974  4.8603387
+log_score    -6.5731280  -6.5283709 -6.5924706 -6.5652093
+```
+
+
