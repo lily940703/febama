@@ -88,3 +88,12 @@ M4_q1[[a]]$score<-score
 }
 ```
 # Result
+```
+> summery
+          y_hat_feature    y_hat_w    average   ari_fore   ets_fore
+mase_err       0.554758  0.5524324  0.5523294  0.5598119  0.5724977
+smape_err      5.398744  5.3777053  5.3708209  5.3339046  5.6922742
+log_score     -6.667574 -6.6574870 -6.6399594 -6.6942272 -6.6775508
+```
+
+log
