@@ -1,8 +1,7 @@
-
+# Test 1 One-step prediction
 According to previous experiments, simple average (sa) has been the best performing method.In order to verify the correctness of our calculation process, we try to make only one-step prediction, which is consistent with the method in the optimal prediction pool.
 * Data: M4 quarterly data (1000 randomly)
-* One-step prediction
-# Code
+## Code
 ```
 library(tsfeatures)
 library(M4metaresults)
@@ -87,7 +86,7 @@ names(score)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
 M4_q1[[a]]$score<-score
 }
 ```
-# Result
+## Result
 ```
 > summery
           y_hat_feature    y_hat_w    average   ari_fore   ets_fore
@@ -95,7 +94,7 @@ mase_err       0.554758  0.5524324  0.5523294  0.5598119  0.5724977
 smape_err      5.398744  5.3777053  5.3708209  5.3339046  5.6922742
 log_score     -6.667574 -6.6574870 -6.6399594 -6.6942272 -6.6775508
 ```
-# Discuss
+## Discuss
 Plot the histogram of the weights in the first two methods.
 
 Select the data with the highest frequency in the histogram of the two methods, that is, the data with weight less than or equal to 0.1, and calculate the performance of the different methods in these data. However, the results imply that SA is still the best.
@@ -135,5 +134,20 @@ mase_err      0.4855252   0.4829906  0.4861025  0.5076936
 smape_err     4.5334408   4.5577660  4.5385974  4.8603387
 log_score    -6.5731280  -6.5283709 -6.5924706 -6.5652093
 ```
+# Test 2  Weights are not updated
+```
+for (a in 1:1000) {
+  w<-as.numeric(M4_q1[[a]]$w_feature)
+  y_hat_feature<-w*(as.matrix(M4_q1[[a]]$ets_fore))+(1-w)*(as.matrix(M4_q1[[a]]$ari_fore))
+  M4_q1[[a]]$y_hat_feature<-t(y_hat_feature)
+  ...
+}
+```
+```
+> print(summery)
+[1]   1.103422   9.370611 -85.723277
+```
+The results are roughly consistant with the method for updating weights (1.1036	9.351	-85.73).
+
 
 
