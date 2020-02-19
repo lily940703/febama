@@ -186,3 +186,33 @@ $convergence
 $message
 NULL
 ````
+# Test 5 Yearly data
+1000 of M4 yearly data were randomly selected, and the feature-based method only considered the selected six features.
+*The predictions for individual data were poor, with log score -Inf, so these data were removed for comparison.
+```
+> summery
+          y_hat_feature     y_hat_w     average    ari_fore    ets_fore
+mase_err       3.328958    3.325678    3.270496    3.349635    3.359202
+smape_err     14.122818   14.153858   13.963836   14.379974   14.291773
+log_score   -119.456855 -118.539386 -114.111131 -136.114439 -126.652622
+```
+```
+score_output<-c()
+for (j in 1:5){
+  score0<-c()
+  for (i in 1:1000){
+    if(i %in% c(8,112,159,303,399,477,478,640,848)){
+      score0<-score0
+    }else{
+      score0<-c(score0,M4_y1[[i]]$score[j])
+    }
+  }
+  score0<-mean(score0)
+  score_output<-c(score_output,score0)
+}
+
+summery<-rbind(mase_err,smape_err,score_output)
+colnames(summery)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
+rownames(summery)<-c("mase_err","smape_err","log_score")
+summery
+```
