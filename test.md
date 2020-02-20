@@ -94,8 +94,11 @@ mase_err      0.5563622  0.5575904  0.5523294  0.5598119  0.5724977
 smape_err     5.4888827  5.4729528  5.3708209  5.3339046  5.6922742
 log_score    -6.6685471 -6.6634350 -6.6399594 -6.6942272 -6.6775508
 ```
+* The method of optimal prediction pool is still inferior to the SA.
+* For one-step prediction, there is no obvious advantage in taking features into consideration.
 ## Discuss
 Plot the histogram of the weights in the first two methods.
+
 ![hist_weight](/plot/hist_weight.png)
 
 Select the data with the highest frequency in the histogram of the two methods, that is, the data with weight less than or equal to 0.1, and calculate the performance of the different methods in these data. However, the results imply that SA is still the best.
@@ -135,6 +138,9 @@ mase_err       0.478759  0.4770845  0.4673669  0.4791699  0.4848627
 smape_err      4.833397  4.8080849  4.6521682  4.8417760  4.8846863
 log_score     -6.465986 -6.4522726 -6.4190756 -6.4841300 -6.4491572
 ```
+## Questions
+* The calculation of probability density 
+
 # Test 2  Weights are not updated
 ```
 for (a in 1:1000) {
