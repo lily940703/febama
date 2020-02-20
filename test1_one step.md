@@ -1,5 +1,5 @@
 # Test 1 One-step prediction
-According to previous experiments, simple average (sa) has been the best performing method.In order to verify the correctness of our calculation process, we try to make only one-step prediction, which is consistent with the method in the optimal prediction pool.
+According to previous experiments, simple average (SA) has been the best performing method. In order to verify the correctness of our calculation process, we try to make only one-step prediction, which is consistent with the method in the optimal prediction pool.
 * Data: M4 quarterly data (1000 randomly)
 ## Code
 ```
