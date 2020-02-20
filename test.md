@@ -203,6 +203,8 @@ log_score<-function(beta){
 par(mfrow=c(1,1))
 plot(log_score,xlim=c(-10,10),xlab="beta")
 ```
+![logscore-beta](/plot/logscore-beta.png)
+
 ```
 set.seed(2019-02-14)
 w_max<-optim(fn=log_score,par=runif(1, 0, 0),method="SANN")
