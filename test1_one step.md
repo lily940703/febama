@@ -146,47 +146,10 @@ for (a in 1:1000) {
 ```
 > print(summery)
 [1]   1.103422   9.370611 -85.723277
+1.106628   9.417214 -86.822581
 ```
 The results are roughly consistant with the method for updating weights (1.1036	9.351	-85.73).
-
-# Test 4 Function log score
-```
-y<-M4_q1[[1]]$x
-p<-PP[[1]]
-features_y<-FF[[1]]
-log_score1<-log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
-log_score<-function(beta){
-  for (i in 10:(length(y))) {
-    w<-1/(1+exp(-features_y[i-9,feature_select[[4]]]%*%beta))
-    log_score1<-log_score1+log(w*p[i,1]+(1-w)*p[i,2])
-  }
-  return(-log_score1)
-}
-
-par(mfrow=c(1,1))
-plot(log_score,xlim=c(-10,10),xlab="beta")
-```
-```
-set.seed(2019-02-14)
-w_max<-optim(fn=log_score,par=runif(1, 0, 0),method="SANN")
-> w_max
-$par
-[1] -0.6837428
-
-$value
-[1] 731.5449
-
-$counts
-function gradient 
-   10000       NA 
-
-$convergence
-[1] 0
-
-$message
-NULL
-````
-# Test 5 Yearly data
+# Test 3 Yearly data
 1000 of M4 yearly data were randomly selected, and the feature-based method only considered the selected six features.
 *The predictions for individual data were poor, with log score -Inf, so these data were removed for comparison.
 ```
@@ -216,3 +179,40 @@ colnames(summery)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
 rownames(summery)<-c("mase_err","smape_err","log_score")
 summery
 ```
+# Test 4 Function log score
+```
+y<-M4_q1[[1]]$x
+p<-PP[[1]]
+features_y<-FF[[1]]
+log_score1<-log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
+log_score<-function(beta){
+  for (i in 10:(length(y))) {
+    w<-1/(1+exp(-features_y[i-9,feature_select[[4]]]%*%beta))
+    log_score1<-log_score1+log(w*p[i,1]+(1-w)*p[i,2])
+  }
+  return(-log_score1)
+}
+
+par(mfrow=c(1,1))
+plot(log_score,xlim=c(-10,10),xlab="beta")
+```
+```
+set.seed(2019-02-14)
+w_max<-optim(fn=log_score,par=runif(1, 0, 0),method="SANN")
+> w_max
+$par
+[1] -8.692382
+
+$value
+[1] 731.5224
+
+$counts
+function gradient 
+   10000       NA 
+
+$convergence
+[1] 0
+
+$message
+NULL
+````
