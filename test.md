@@ -187,7 +187,7 @@ rownames(summery)<-c("mase_err","smape_err","log_score")
 summery
 ```
 # Test 4 Function log score
-* optimal pool
+## optimal pool
 ```
 y1<-0
 y_score<-function(x){
@@ -205,6 +205,8 @@ $objective
 [1] 731.5824
 ```
 ![logscore-w](/plot/logscore-w.png)
+
+## feature based
 ```
 y<-M4_q1[[1]]$x
 p<-PP[[1]]
@@ -236,6 +238,12 @@ function gradient
    10000       NA 
 $convergence
 [1] 0
+
+#intercept term included
+$par
+[1] -1.804373 -4.128590
+$value
+[1] 731.5641
 ```
 * 2 features
 ```
@@ -248,6 +256,12 @@ function gradient
    10000       NA 
 $convergence
 [1] 0
+
+#intercept term included
+$par
+[1]  -9.853800 -11.272811   6.903053
+$value
+[1] 731.5578
 ```
 * 3 features
 ```
@@ -260,6 +274,12 @@ function gradient
    10000       NA 
 $convergence
 [1] 0
+
+#intercept term included
+$par
+[1]   2.656455  -1.863242  -6.316032 -10.689257
+$value
+[1] 731.5364
 ```
 * 4 features
 ```
@@ -272,6 +292,13 @@ function gradient
    10000       NA 
 $convergence
 [1] 0
+
+#intercept term included
+$par
+[1]  0.04769096  0.08492030 -3.49301770 -4.03483881 -0.88156401
+$value
+[1] 731.5474
+
 ```
 * 5 features
 ```
@@ -282,6 +309,12 @@ $value
 $counts
 function gradient 
    10000       NA 
+
+#intercept term included
+$par
+[1]  1.3779198 -2.3175164  0.3655086  3.3845474 -0.9526565 -2.4159046
+$value
+[1] 731.5357
 ```
 * 6 features
 ```
@@ -295,7 +328,7 @@ function gradient
 $convergence
 [1] 0
 
-#
+# intercept term included
 $par
 [1] -0.9933166 -6.5409451 -2.4041121 -7.6890374 -2.7938049 -6.3608746  7.3838571
 $value
@@ -306,3 +339,5 @@ function gradient
 $convergence
 [1] 0
 ```
+* Adding features can make the log score become smaller.
+* Sometimes, adding intercept term can make the log score become smaller.
