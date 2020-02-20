@@ -108,13 +108,13 @@ for (i in 1:1000){
 }
 
 > length(optim_select)
-[1] 361
+[1] 397
 ```
 ```
-            y_hat_w    average   ari_fore   ets_fore
-mase_err   0.492517  0.4888102  0.4933187  0.5124499
-smape_err  5.086152  5.0111169  5.1087485  5.4000207
-log_score -6.547171 -6.5175400 -6.5483020 -6.5666039
+             y_hat_w    average   ari_fore  ets_fore
+mase_err   0.5262258  0.5197022  0.5264386  0.541758
+smape_err  5.2769434  5.1338279  5.2966418  5.505232
+log_score -6.5272805 -6.4907724 -6.5288729 -6.530911
 ```
 * feature based
 ```
@@ -126,13 +126,13 @@ for (i in 1:1000){
 }
 
 > length(feature_select)
-[1] 442
+[1] 439
 ```
 ```
-          y_hat_feature     average   ari_fore   ets_fore
-mase_err      0.4855252   0.4829906  0.4861025  0.5076936
-smape_err     4.5334408   4.5577660  4.5385974  4.8603387
-log_score    -6.5731280  -6.5283709 -6.5924706 -6.5652093
+          y_hat_feature    y_hat_w    average   ari_fore   ets_fore
+mase_err       0.478759  0.4770845  0.4673669  0.4791699  0.4848627
+smape_err      4.833397  4.8080849  4.6521682  4.8417760  4.8846863
+log_score     -6.465986 -6.4522726 -6.4190756 -6.4841300 -6.4491572
 ```
 # Test 2  Weights are not updated
 ```
