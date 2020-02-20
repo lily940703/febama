@@ -187,6 +187,24 @@ rownames(summery)<-c("mase_err","smape_err","log_score")
 summery
 ```
 # Test 4 Function log score
+* optimal pool
+```
+y1<-0
+y_score<-function(x){
+  for (i in 1:(length(y))) {
+    y1<-y1+log(x*p[i,1]+(1-x)*p[i,2])
+  }
+  return(-y1)
+}
+w_optim<-optimize(y_score,c(0,1),tol = 0.0001)
+> w_optim
+$minimum
+[1] 0.4066993
+
+$objective
+[1] 731.5824
+```
+![logscore-w](/plot/logscore-w.png)
 ```
 y<-M4_q1[[1]]$x
 p<-PP[[1]]
@@ -211,17 +229,80 @@ w_max<-optim(fn=log_score,par=runif(1, 0, 0),method="SANN")
 > w_max
 $par
 [1] -8.692382
-
 $value
 [1] 731.5224
-
 $counts
 function gradient 
    10000       NA 
-
+$convergence
+[1] 0
+```
+* 2 features
+```
+$par
+[1] -18.232871  -6.426983
+$value
+[1] 731.5516
+$counts
+function gradient 
+   10000       NA 
+$convergence
+[1] 0
+```
+* 3 features
+```
+$par
+[1]  0.9803708 -3.7436639 -6.5726971
+$value
+[1] 731.5546
+$counts
+function gradient 
+   10000       NA 
+$convergence
+[1] 0
+```
+* 4 features
+```
+$par
+[1]   0.1111206   0.8026376 -19.9875921  -9.0262070
+$value
+[1] 731.5535
+$counts
+function gradient 
+   10000       NA 
+$convergence
+[1] 0
+```
+* 5 features
+```
+$par
+[1]   0.7042163  -8.1092401  -2.1315472 -14.9969504  -2.0160211
+$value
+[1] 731.5459
+$counts
+function gradient 
+   10000       NA 
+```
+* 6 features
+```
+$par
+[1]   0.3171425 -13.8511234  -4.7591751  -4.0357003 -14.6981076   4.5653223
+$value
+[1] 731.4784
+$counts
+function gradient 
+   10000       NA 
 $convergence
 [1] 0
 
-$message
-NULL
-````
+#
+$par
+[1] -0.9933166 -6.5409451 -2.4041121 -7.6890374 -2.7938049 -6.3608746  7.3838571
+$value
+[1] 731.4674
+$counts
+function gradient 
+   10000       NA 
+$convergence
+[1] 0
+```
