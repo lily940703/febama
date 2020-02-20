@@ -96,7 +96,7 @@ log_score    -6.6685471 -6.6634350 -6.6399594 -6.6942272 -6.6775508
 ```
 ## Discuss
 Plot the histogram of the weights in the first two methods.
-
+![image] (https://github.com/lily940703/feature-based-bayesian-model-averaging/blob/master/plot/hist_weight.png?raw=true)
 Select the data with the highest frequency in the histogram of the two methods, that is, the data with weight less than or equal to 0.1, and calculate the performance of the different methods in these data. However, the results imply that SA is still the best.
 * the optimal pool
 ```
