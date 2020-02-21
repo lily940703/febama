@@ -89,10 +89,10 @@ M4_q1[[a]]$score<-score
 ## Result
 ```
 > summery
-          y_hat_feature    y_hat_w    average   ari_fore   ets_fore
-mase_err      0.5563622  0.5575904  0.5523294  0.5598119  0.5724977
-smape_err     5.4888827  5.4729528  5.3708209  5.3339046  5.6922742
-log_score    -6.6685471 -6.6634350 -6.6399594 -6.6942272 -6.6775508
+          y_hat_feature3   y_hat_feature6    y_hat_w    average   ari_fore   ets_fore
+mase_err       0.5533221        0.5563622  0.5575904  0.5523294  0.5598119  0.5724977
+smape_err      5.4210038        5.4888827  5.4729528  5.3708209  5.3339046  5.6922742
+log_score     -6.6617348       -6.6685471 -6.6634350 -6.6399594 -6.6942272 -6.6775508
 ```
 * The method of optimal prediction pool is still inferior to the SA.
 * For one-step prediction, there is no obvious advantage in taking features into consideration.
