@@ -152,10 +152,11 @@ for (a in 1:1000) {
 ```
 ```
 > print(summery)
-[1]   1.103422   9.370611 -85.723277
-1.106628   9.417214 -86.822581
+[1]   1.106628   9.417214 -86.822581
+
+#update  1.110544	 9.426765	 -84.413829
 ```
-The results are roughly consistant with the method for updating weights (1.1036	9.351	-85.73).
+* So the way of updating weights is reasonable?
 # Test 3 Yearly data
 1000 of M4 yearly data were randomly selected, and the feature-based method only considered the selected six features.
 *The predictions for individual data were poor, with log score -Inf, so these data were removed for comparison.
