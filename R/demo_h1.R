@@ -128,7 +128,8 @@ load("M4_q1.RData")
 #' @return
 #' @author Feng Li
 log_score<-function(beta, features, prob, intercept){
-    if(intercept) features = cbind(1, features)
+
+    if(intercept) features = cbind(rep(1, nrow(prob)), features)
 
     exp_lin = exp(features%*%beta)
 
@@ -176,16 +177,12 @@ for (a in 1:1000) {
     }
     beta_optim<-w_max$par
 
-    ## optimal pool
-    y1<-0
-    y_score<-function(x){
-        for (i in 1:(length(y))) {
-            y1<-y1+log(x*p[i,1]+(1-x)*p[i,2])
-        }
-        return(-y1)
-    }
-    w_optim<-optimize(y_score,c(0,1),tol = 0.0001)
-    w_optim<-w_optim$minimum
+    ## optimal pool: feature=NULL, intercept =TRUE
+    w_optim<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
+                 features = NULL,
+                 prob = p,
+                 intercept = TRUE,
+                 method="SANN", control = list(fnscale = -1))
 
     ## forecasting
     y_hat_feature<-c()
