@@ -1,0 +1,10 @@
+*~
+.dropbox
+.Rhistory
+\#*\#
+.\#*
+*.asv
+*.Rc
+*.eps
+*.pdf
+**/symbols.rds
