@@ -69,24 +69,23 @@ for (a in 1:1000) {
     y<-M4_q1[[a]]$x
     p<-matrix(nrow = length(y),ncol = 2)
 
-                                        # p[t,1] of model ets
+    ## p[t,1] of model ets
     sigma_ets<-sqrt(ets2$sigma2)
     M4_q1[[a]]$sigma_ets<-sigma_ets
     for (t in 1:(length(y))) {
-        p[t,1]<-dnorm(y[t],mean =ets2$fitted[t],sd=sigma_ets )
+        p[t,1]<-dnorm(y[t],mean =ets2$fitted[t],sd=ets_fore_sd)
     }
-
-                                        # p[t,2] of model arima
+    ## p[t,2] of model arima
     sigma_ari<-sqrt(arima1$sigma2)
     M4_q1[[a]]$sigma_ari<-sigma_ari
     for (t in 1:(length(y))) {
-        p[t,2]<-dnorm(y[t],mean =arima1$fitted[t],sd=sigma_ari )
+        p[t,2]<-dnorm(y[t],mean =arima1$fitted[t],sd=ari_fore_sd)
     }
     PP[[a]]<-p
 
     features_y<-c()
     for (i in 9:length(y)) {
-                                        # 时间序列长度大于两个周期
+        ## 时间序列长度大于两个周期
         ts<-list(x=ts(y[1:i],frequency = 4))
         ts1<-list(ts)
         myfeatures <- THA_features(ts1)[[1]]$features
@@ -109,21 +108,24 @@ load("BMA_FF.RData")
 load("M4_q1.RData")
 
 #################################################################################
-                                        # performance of five methods
-                                        # 1 feature based (42 features)
-                                        # 2 optimal pool
-                                        # 3 simple average (SA)
-                                        # 4 ARIMA
-                                        # 5 ETS
+## performance of five methods
+## 1 feature based (42 features)
+## 2 optimal pool
+## 3 simple average (SA)
+## 4 ARIMA
+## 5 ETS
 
 for (a in 1:1000) {
+
     y<-M4_q1[[a]]$x
     p<-PP[[a]]
     features_y<-FF[[a]]
 
-                                        # feature-based method (all 42)
-                                        #大于两个周期才能算特征，所以前九期权重赋值0.5
-    log_score1<-log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
+    ## feature-based method (all 42)
+    ##大于两个周期才能算特征，所以前九期权重赋值0.5
+    ## log_score1 <- log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
+    log_score1 = sum(log(rowSums(p)))
+
     log_score<-function(beta){
         for (i in 10:(length(y))) {
                                         # include intercept term
