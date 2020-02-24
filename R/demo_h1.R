@@ -60,7 +60,7 @@ for (a in 1:1000) {
 
     ## determine arima
     arima1<-auto.arima(M4_q1[[a]]$x)
-    ari_fore<-forecast(arima1,h = h, level = PI_level)
+    ari_fore<-forecast(arima1, h = h, level = PI_level)
     M4_q1[[a]]$ari_fore<-ari_fore$mean
 
     ari_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
@@ -134,11 +134,13 @@ for (a in 1:1000) {
     ##w<-1/(1+exp(-features_y[i-9,]%*%beta))
             log_score1<-log_score1+log(w*p[i,1]+(1-w)*p[i,2])
         }
-        return(-log_score1)
+        return(log_score1)
     }
-    ##optim默认求最小值
+
+    ## maximizing
     set.seed(2019-02-06)
-    w_max<-optim(fn=log_score,par=runif(43, min = 0, max = 0),method="SANN")
+    w_max<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
+                 method="SANN", control = list(fnscale = -1))
     if(w_max$convergence!=0){
         cat("The optimization is not convergent in data", a)
     }
