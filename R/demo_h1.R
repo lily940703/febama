@@ -28,6 +28,7 @@ PP<-list()
 ets_model = "ANN" # simple exponential smoothing with additive errors
 h = 8
 PI_level = 90
+intercept = FALSE # Do not include intercept in the features
 ###----------------------------------------------------------------------------
 for (a in 1:1000) {
     ## determine ets
@@ -98,7 +99,7 @@ for (a in 1:1000) {
     ## par(mfrow = c(6, 7), mar = c(5, 0, 0, 0))
     ## for(i in 1:42)
     ## {
-    ##     plot(features_y[, i], type = "l", color = "red", xlab = colnames(features_y)[i])
+    ##     plot(features_y[, i], type = "l", col = "red", xlab = colnames(features_y)[i])
     ## }
 
 }
@@ -159,12 +160,17 @@ for (a in 1:1000) {
     ## feature-based method (all 42)
     ##大于两个周期才能算特征，所以前九期权重赋值0.5
     ## log_score1 <- log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
-    log_score1 = sum(log(rowSums(p[1:9, ])))
+    ## log_score1 = sum(log(rowSums(p[1:9, ])))
 
     ## maximizing
     set.seed(2019-02-06)
     w_max<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
+                 features = features_y,
+                 prob = p,
+                 intercept = intercept,
                  method="SANN", control = list(fnscale = -1))
+
+
     if(w_max$convergence!=0){
         cat("The optimization does not converge in data", a)
     }
