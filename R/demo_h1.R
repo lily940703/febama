@@ -128,15 +128,15 @@ for (a in 1:1000) {
 
     log_score<-function(beta){
         for (i in 10:(length(y))) {
-                                        # include intercept term
+    ## include intercept term
             w<-1/(1+exp(-c(1,features_y[i-9,])%*%beta))
-                                        # no intercept term  改四处 optim(...,par,...)，3个w
-                                        #w<-1/(1+exp(-features_y[i-9,]%*%beta))
+    ## no intercept term  改四处 optim(...,par,...)，3个w
+    ##w<-1/(1+exp(-features_y[i-9,]%*%beta))
             log_score1<-log_score1+log(w*p[i,1]+(1-w)*p[i,2])
         }
         return(-log_score1)
     }
-                                        #optim默认求最小值
+    ##optim默认求最小值
     set.seed(2019-02-06)
     w_max<-optim(fn=log_score,par=runif(43, min = 0, max = 0),method="SANN")
     if(w_max$convergence!=0){
@@ -144,7 +144,7 @@ for (a in 1:1000) {
     }
     beta_optim<-w_max$par
 
-                                        # optimal pool
+    ## optimal pool
     y1<-0
     y_score<-function(x){
         for (i in 1:(length(y))) {
@@ -155,7 +155,7 @@ for (a in 1:1000) {
     w_optim<-optimize(y_score,c(0,1),tol = 0.0001)
     w_optim<-w_optim$minimum
 
-                                        # forecasting
+    ## forecasting
     y_hat_feature<-c()
     for (i in 1:8) {
         w<-1/(1+exp(-c(1,features_y[length(features_y[,1]),])%*%beta_optim))
@@ -173,7 +173,7 @@ for (a in 1:1000) {
     M4_q1[[a]]$y_hat_w<-w_optim*M4_q1[[a]]$ets_fore+(1-w_optim)*M4_q1[[a]]$ari_fore
     M4_q1[[a]]$average<-0.5*(M4_q1[[a]]$ets_fore+M4_q1[[a]]$ari_fore)
 
-                                        # mase smape
+    ## mase smape
     ff<-rbind(M4_q1[[a]]$y_hat_feature,M4_q1[[a]]$y_hat_w,M4_q1[[a]]$average,M4_q1[[a]]$ari_fore,M4_q1[[a]]$ets_fore)
     row.names(ff)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
     M4_q1[[a]]$ff<-ff
@@ -191,7 +191,7 @@ for (a in 1:1000) {
     M4_q1[[a]]$mase_err <- rowMeans(mase_err)
     M4_q1[[a]]$smape_err <- rowMeans(smape_err)
 
-                                        #log predictive score
+    ##log predictive score
     sigma_ari<-M4_q1[[a]]$sigma_ari
     sigma_ets<-M4_q1[[a]]$sigma_ets
 
@@ -268,9 +268,9 @@ rownames(summery)<-c("mase_err","smape_err","log_score")
 summery
 
 #################################################################################
-                                        # performance of the feature-based method with different features
+    ## performance of the feature-based method with different features
 
-                                        # select features to be considered
+    ## select features to be considered
 feature_select<-list()
 feature_select[[1]]<-10
 feature_select[[2]]<-12
@@ -294,16 +294,16 @@ for (f in 4:11) {
         log_score1<-log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
         log_score<-function(beta){
             for (i in 10:(length(y))) {
-                                        # include intercept term
+    ## include intercept term
                 w<-1/(1+exp(-c(1,features_y[i-9,feature_select[[f]]])%*%beta))
-                                        # no intercept term  改四处 optim(...,par,...)，3个w
-                                        #w<-1/(1+exp(-features_y[i-9,feature_select[[f]]]%*%beta))
+    ## no intercept term  改四处 optim(...,par,...)，3个w
+    ##w<-1/(1+exp(-features_y[i-9,feature_select[[f]]]%*%beta))
                 log_score1<-log_score1+log(w*p[i,1]+(1-w)*p[i,2])
             }
             return(-log_score1)
         }
 
-                                        # optimization
+    ## optimization
         set.seed(2019-02-14)
         w_max<-optim(fn=log_score,par=runif((length(feature_select[[f]])+1), 0, 0),method="SANN")
         if(w_max$convergence!=0){
@@ -311,7 +311,7 @@ for (f in 4:11) {
         }
         beta_optim<-w_max$par
 
-                                        # forcasting
+    ## forcasting
         y_hat_feature<-c()
         for (i in 1:8) {
             w<-1/(1+exp(-c(1,features_y[length(features_y[,1]),feature_select[[f]]])%*%beta_optim))
@@ -326,7 +326,7 @@ for (f in 4:11) {
         }
         M4_q1[[a]]$y_hat_feature<-y_hat_feature
 
-                                        # mase, smape
+    ## mase, smape
         lentry <- M4_q1[[a]]
         insample <- lentry$x
         ff<- lentry$y_hat_feature
@@ -339,7 +339,7 @@ for (f in 4:11) {
         M4_q1[[a]]$mase_err_F <- mean(mase_err)
         M4_q1[[a]]$smape_err_F <- mean(smape_err)
 
-                                        #log predictive score
+    ##log predictive score
         hat_feature_score_sum<-0
         for(j in 1:8){
             w<-1/(1+exp(-c(1,features_y[(length(features_y[,1])-9+j),feature_select[[f]]])%*%beta_optim))
@@ -349,7 +349,7 @@ for (f in 4:11) {
         M4_q1[[a]]$score_F<-hat_feature_score_sum
     }
 
-                                        # The overall predicted performance of the dataset
+    ## The overall predicted performance of the dataset
     mase_err0<-c()
     for (i in 1:1000){
         mase_err0<-c(mase_err0,M4_q1[[i]]$mase_err_F)
@@ -364,8 +364,8 @@ for (f in 4:11) {
 
     score0<-c()
     for (i in 1:1000){
-                                        # -Inf in  M4_q1[[173]]$score_F
-                                        # delete 173
+    ## -Inf in  M4_q1[[173]]$score_F
+    ## delete 173
         if(i==173){
             score0<-score0
         }else{
@@ -387,7 +387,7 @@ for (a in 1:1000) {
     p<-PP[[a]]
     features_y<-FF[[a]]
 
-                                        #feature based (feature_select[[8]]:12,17,33)
+    ##feature based (feature_select[[8]]:12,17,33)
     log_score1<-log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
     log_score<-function(beta){
         for (i in 10:(length(y))) {
@@ -404,7 +404,7 @@ for (a in 1:1000) {
     M4_q1[[a]]$y_hat_feature<-y_hat_feature
     M4_q1[[a]]$w_feature3<-w
 
-                                        #optimal pool
+    ##optimal pool
     y1<-0
     y_score<-function(x){
         for (i in 1:(length(y))) {
@@ -416,10 +416,10 @@ for (a in 1:1000) {
     w_optim<-w_optim$minimum
     M4_q1[[a]]$y_hat_w<-w_optim*M4_q1[[a]]$ets_fore[1]+(1-w_optim)*M4_q1[[a]]$ari_fore[1]
 
-                                        #SA
+    ##SA
     M4_q1[[a]]$average<-0.5*(M4_q1[[a]]$ets_fore[1]+M4_q1[[a]]$ari_fore[1])
 
-                                        # mase smape
+    ## mase smape
     ff<-rbind(M4_q1[[a]]$y_hat_feature,M4_q1[[a]]$y_hat_w,M4_q1[[a]]$average,M4_q1[[a]]$ari_fore[1],M4_q1[[a]]$ets_fore[1])
     row.names(ff)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
     M4_q1[[a]]$ff<-ff
@@ -437,7 +437,7 @@ for (a in 1:1000) {
     M4_q1[[a]]$mase_err <- mase_err
     M4_q1[[a]]$smape_err <- smape_err
 
-                                        # log score
+    ## log score
     ari_score<-dnorm(outsample[1],mean =ff[4,1],sd=M4_q1[[a]]$sigma_ari )
     ets_score<-dnorm(outsample[1],mean =ff[5,1],sd=M4_q1[[a]]$sigma_ets )
     ave_score<-0.5*dnorm(outsample[1],mean =ff[4,1],sd=M4_q1[[a]]$sigma_ari)+0.5*dnorm(outsample[1],mean =ff[5,1],sd=M4_q1[[a]]$sigma_ets)
