@@ -1,1 +1,1 @@
-# feature-based-bayesian-model-averaging
+# `febama`: Feature-based Bayesian Forecasting Model Averaging
