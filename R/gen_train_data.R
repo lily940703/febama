@@ -50,6 +50,11 @@ for (i_ts in 1:length(data))
 
   ## A single historical data
   y <- data[[i_ts]]$x
+  y01 = scale(y, center = TRUE, scale = TRUE)
+  y_mean = attr(y01, "scaled:center")
+  y_sd = attr(y01, "scaled:scale")
+
+  y01 = as.numeric(y01)
 
   ## Calculate historical log predictive density
   log_pred_densities<-matrix(nrow = length(y) - history_burn - train_h, ncol = 2)
@@ -59,7 +64,7 @@ for (i_ts in 1:length(data))
     ## invariant with certain time period to save time.
 
     ## ETS model
-    ets_fit <- ets(y[1:(t-train_h)], model = ets_model)
+    ets_fit <- ets(y01[1:(t-train_h)], model = ets_model)
     ets_fore<-forecast(ets_fit, h = train_h, level = PI_level)
     ets_fore_mean <- ets_fore$mean
     ## forecast.ets does not directly provide predictive variance but we could infer from
@@ -67,15 +72,15 @@ for (i_ts in 1:length(data))
     ets_fore_sd = (ets_fore$lower - ets_fore$mean)/qnorm(1 - PI_level/100)
 
     ## ARIMA model
-    arima_fit <- auto.arima(y[1:(t - train_h)])
+    arima_fit <- auto.arima(y01[1:(t - train_h)])
     arima_fore <- forecast(arima_fit, h = train_h, level = PI_level)
     arima_fore_mean <- arima_fore$mean
     arima_fore_sd = (arima_fore$lower - arima_fore$mean)/qnorm(1 - PI_level/100)
 
     ## To keep numeric stability, we calculate log P(y_pred)
-    log_pred_densities[(t - history_burn), 1] <- sum(dnorm(y[(t + 1):(t + train_h)], mean = ets_fore_mean,
+    log_pred_densities[(t - history_burn), 1] <- sum(dnorm(y01[(t + 1):(t + train_h)], mean = ets_fore_mean,
                                                            sd = ets_fore_sd, log = TRUE))
-    log_pred_densities[(t - history_burn), 2] <- sum(dnorm(y[(t + 1):(t + train_h)], mean = arima_fore_mean,
+    log_pred_densities[(t - history_burn), 2] <- sum(dnorm(y01[(t + 1):(t + train_h)], mean = arima_fore_mean,
                                                            sd = arima_fore_sd, log = TRUE))
   }
   lpred_dens[[i_ts]]<-log_pred_densities

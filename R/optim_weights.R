@@ -51,7 +51,15 @@ for (i_ts in 1:length(data))
   ## Rewrite this loop with palapply
 
   y <- data[[i_ts]]$x
+
+  y01 = scale(y, center = TRUE, scale = TRUE)
+  y_mean = attr(y01, "scaled:center")
+  y_sd = attr(y01, "scaled:scale")
+  y01 = as.numeric(y01)
+
   y_true = data[[i_ts]]$xx
+  y01_true = as.numeric(scale(y_true, center = y_mean, scale = y_sd))
+
   y_lpd <- lpred_dens[[i_ts]]
 
   ## features_y = feat[[i_ts]]
@@ -63,7 +71,7 @@ for (i_ts in 1:length(data))
 
   ## maximizing TODO: change to a better optimization tool.
   ## library("optimx")
-  w_max <- optim(par = runif(1),
+  w_max <- try(optim(par = 0, #runif(1),
                  fn = log_score,
                  features = features_y,
                  prob = exp(y_lpd),
@@ -71,6 +79,11 @@ for (i_ts in 1:length(data))
                  intercept = TRUE,
                  method="BFGS",
                  control = list(fnscale = -1))
+
+               )
+
+  if(is(w_max, "try-error")) browser()
+
 
   if(w_max$convergence!=0){
     cat("The optimization does not converge in data", a)
@@ -87,7 +100,7 @@ for (i_ts in 1:length(data))
   ## forecasting
   features_y_hat = matrix(nrow = forecast_h, ncol = 42)
   y_new_list = matrix(nrow = forecast_h, 1)
-  y_new = y
+  y_new = y01
 
   pred_densities = matrix(NA, forecast_h, 2)
   for (t in 1:forecast_h)
@@ -130,14 +143,14 @@ for (i_ts in 1:length(data))
     w_full = cbind(w, 1 - rowSums(w)) # T-by-n
 
     ## The final pooled y
-    y_new = sum(cbind(ets_fore_mean, arima_fore_mean) * w_full)
-    y_new_list[t] = y_new
+    y_pred_h = sum(cbind(ets_fore_mean, arima_fore_mean) * w_full)
+    y_new = c(y_new, y_pred_h)
 
     ## The predictive log score, we need true y here.
-    pred_densities[t, 1] <- dnorm(y_true[t], mean = ets_fore_mean,
-                                      sd = ets_fore_sd)
-    pred_densities[t, 2] <- dnorm(y_true[t], mean = arima_fore_mean,
-                                      sd = arima_fore_sd)
+    pred_densities[t, 1] <- dnorm(y01_true[t], mean = ets_fore_mean,
+                                  sd = ets_fore_sd)
+    pred_densities[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean,
+                                  sd = arima_fore_sd)
 
     print(pred_densities)
     lpds = lpds + log(sum(pred_densities[t,] * w_full))
