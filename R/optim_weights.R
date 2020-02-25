@@ -1,7 +1,4 @@
 ## load data
-load("BMA_PP.RData")
-load("BMA_FF.RData")
-load("M4_q1.RData")
 
 #' Calculate the log predictive score for a time series with pools of models
 #'
@@ -39,7 +36,9 @@ log_score<-function(beta, features, prob, intercept){
 ## 4 ARIMA
 ## 5 ETS
 
-for (a in 1:1000) {
+for (a in 1:1000)
+{
+    ## Rewrite this loop with palapply
 
     y<-M4_q1[[a]]$x
     y_true = M4_q1[[a]]$xx
@@ -144,7 +143,7 @@ for (j in 1:5){
 
 }
 
-summery<-rbind(mase_err,smape_err,score_output)
-colnames(summery)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
-rownames(summery)<-c("mase_err","smape_err","log_score")
-summery
+pred_summary<-rbind(mase_err,smape_err,score_output)
+colnames(pred_summary)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
+rownames(pred_summary)<-c("mase_err","smape_err","log_score")
+pred_summary

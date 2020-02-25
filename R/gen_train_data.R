@@ -1,14 +1,13 @@
 #! /usr/bin/env Rscript
 
-
 ## feature-based-Bayesian-forecasting-model-averaging
 setwd("~/code/febama/")
 
 library(tsfeatures)
 ## library(M4metaresults)
 ## library(M4comp2018)
-load("data/M4.RData")
-## library(M4metalearning)
+load("data/M4.rda")
+library(M4metalearning)
 library(forecast)
 library(tseries)
 
@@ -35,7 +34,8 @@ history_burn = 16 # Let the model to start with at least this length of historic
 PI_level = 90
 intercept = FALSE # Do not include intercept in the features
 ###----------------------------------------------------------------------------
-for (a in 1:1000) {
+for (a in 1:1000)
+{
 
     ## A single historical data
     y<-M4_q1[[a]]$x
@@ -93,4 +93,4 @@ for (a in 1:1000) {
     ## }
 
 }
-save(PP, FF, M4_q1,file="historical_log_pred_features.RData")
+save(PP, FF, M4_q1,file="data/historical_log_pred_features.RData")
