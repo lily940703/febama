@@ -99,8 +99,10 @@ for (i_ts in 1:length(data))
   features_y_hat = matrix(nrow = forecast_h, ncol = 42)
   y_new_list = matrix(nrow = forecast_h, 1)
   y_new = y01
+  y_new_simple = y01
 
   pred_densities = matrix(NA, forecast_h, 2)
+  pred_densities_simple = matrix(NA, forecast_h, 2)
   for (t in 1:forecast_h)
   { ## NOTE: This part is a recursive process, could not be parallelized.  Calculate
     ## predictive features. Each individual model provide an one-step-ahead predictive y
@@ -118,6 +120,21 @@ for (i_ts in 1:length(data))
     arima_fore <- forecast(arima_fit, h = 1, level = PI_level)
     arima_fore_mean <- arima_fore$mean
     arima_fore_sd = (arima_fore$lower - arima_fore$mean)/qnorm(1 - PI_level/100)
+
+
+    ## ETS model (simple)
+    ets_fit_simple <- ets(y_new_simple, model = ets_model)
+    ets_fore_simple <-forecast(ets_fit_simple, h = 1, level = PI_level)
+    ets_fore_mean_simple <- ets_fore_simple$mean
+    ets_fore_sd_simple = (ets_fore_simple$lower - ets_fore_simple$mean)/qnorm(1 - PI_level/100)
+
+    ## ARIMA model (simple)
+    arima_fit_simple <- auto.arima(y_new_simple)
+    arima_fore_simple <- forecast(arima_fit_simple, h = 1, level = PI_level)
+    arima_fore_mean_simple <- arima_fore_simple$mean
+    arima_fore_sd_simple = (arima_fore_simple$lower - arima_fore_simple$mean)/qnorm(1 - PI_level/100)
+
+
 
     ## Update features
     if(!is.null(features_y))
@@ -149,15 +166,21 @@ for (i_ts in 1:length(data))
                                   sd = ets_fore_sd)
     pred_densities[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean,
                                   sd = arima_fore_sd)
-
-    ## print(pred_densities[t, ])
-    print(w_full)
-
     lpds = lpds + log(sum(pred_densities[t,] * w_full))
-    lpds_simple = lpds_simple + log(mean(pred_densities[t, ]))
+
+    ## Simple combination
+    y_pred_h_simple = mean(c(ets_fore_mean_simple, arima_fore_mean_simple))
+    y_new_simple = c(y_new_simple, y_pred_h_simple)
+
+    pred_densities_simple[t, 1] <- dnorm(y01_true[t], mean = ets_fore_mean_simple,
+                                  sd = ets_fore_sd_simple)
+    pred_densities_simple[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean_simple,
+                                         sd = arima_fore_sd_simple)
+    lpds_simple = lpds_simple + log(mean(pred_densities_simple[t, ]))
   }
 }
 
+print(data.frame(lpds = lpds, lpds_simple = lpds_simple))
 
 ## ## MASE and SMAPE
 ## mase_err<-c()
