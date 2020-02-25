@@ -18,7 +18,7 @@ M4_q<-M4[23001:47000]
 
 indices <- sample(length(M4_q))
 
-data <- M4_q[indices[1:2]]
+data <- M4_q[indices[1:10]]
 
 ## FF: 1000 matrix of features
 ## PP: 1000 matrix of log predictive probability density

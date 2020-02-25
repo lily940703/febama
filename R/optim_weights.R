@@ -33,10 +33,19 @@ log_score<-function(beta, features, prob, intercept){
 ## 3 simple average (SA)
 ## 4 ARIMA
 ## 5 ETS
+require("forecast")
+require("M4metalearning")
 
 ## load historical feature data
 setwd("~/code/febama")
 load("data/historical_log_pred_features.RData")
+
+intercept = TRUE
+forecast_h = 1
+
+
+lpds = 0
+lpds_simple = 0
 for (i_ts in 1:length(data))
 {
   ## Rewrite this loop with palapply
@@ -44,7 +53,9 @@ for (i_ts in 1:length(data))
   y <- data[[i_ts]]$x
   y_true = data[[i_ts]]$xx
   y_lpd <- lpred_dens[[i_ts]]
-  features_y = feat[[i_ts]]
+
+  ## features_y = feat[[i_ts]]
+  features_y = NULL # Just optimal pool, no features loaded
 
   ## Historical Features and scale information
   features_y_mean = attr(features_y, "scaled:center")
@@ -54,8 +65,7 @@ for (i_ts in 1:length(data))
   ## library("optimx")
   w_max <- optim(par = runif(1),
                  fn = log_score,
-                 ## features = features_y,
-                 features = NULL,
+                 features = features_y,
                  prob = exp(y_lpd),
                  ## intercept = intercept,
                  intercept = TRUE,
@@ -79,6 +89,7 @@ for (i_ts in 1:length(data))
   y_new_list = matrix(nrow = forecast_h, 1)
   y_new = y
 
+  pred_densities = matrix(NA, forecast_h, 2)
   for (t in 1:forecast_h)
   { ## NOTE: This part is a recursive process, could not be parallelized.  Calculate
     ## predictive features. Each individual model provide an one-step-ahead predictive y
@@ -93,15 +104,15 @@ for (i_ts in 1:length(data))
 
     ## ARIMA model
     arima_fit <- auto.arima(y_new)
-    arima_fore <- forecast(arima_fit, h = forecast_h, level = PI_level)
+    arima_fore <- forecast(arima_fit, h = 1, level = PI_level)
     arima_fore_mean <- arima_fore$mean
-    arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
+    arima_fore_sd = (arima_fore$lower - arima_fore$mean)/qnorm(1 - PI_level/100)
 
     ## Update features
     if(!is.null(features_y))
     {
       myts <- list(list(x=ts(y_new, frequency = frequency)))
-      myfeatures <- THA_features(my)[[1]]$features
+      myfeatures <- THA_features(myts)[[1]]$features
       myfeatures <- data.matrix(myfeatures)
       myfeatures_scaled = scale(myfeatures, center = features_y_mean, scale = features_y_sd)
       ## features_y_hat[t, ] <- myfeatures_scaled
@@ -112,9 +123,9 @@ for (i_ts in 1:length(data))
     }
 
     ## Update predictive weights
-    if(intercept) my_features_scaled = cbind(1, myfeatures_scaled)
+    if(intercept) myfeatures_scaled = cbind(1, myfeatures_scaled)
 
-    exp_lin = exp(my_features_scaled%*%beta_optim)
+    exp_lin = exp(myfeatures_scaled%*%beta_optim)
     w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
     w_full = cbind(w, 1 - rowSums(w)) # T-by-n
 
@@ -123,45 +134,48 @@ for (i_ts in 1:length(data))
     y_new_list[t] = y_new
 
     ## The predictive log score, we need true y here.
-    ## log_pred_densities[, 1] <- sum(dnorm(y[(t + 1):(t + h)], mean = ets_fore_mean,
-    ##                                      sd = ets_fore_sd, log = TRUE))
-    ## log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
-    ##                                      sd = arima_fore_sd, log = TRUE))
-    ## out = sum(log(rowSums(w_full * prob)))
-  }
+    pred_densities[t, 1] <- dnorm(y_true[t], mean = ets_fore_mean,
+                                      sd = ets_fore_sd)
+    pred_densities[t, 2] <- dnorm(y_true[t], mean = arima_fore_mean,
+                                      sd = arima_fore_sd)
 
+    print(pred_densities)
+    lpds = lpds + log(sum(pred_densities[t,] * w_full))
+    lpds_simple = lpds_simple + log(mean(pred_densities[t, ]))
+  }
 }
 
-## MASE and SMAPE
-mase_err<-c()
-smape_err<-c()
-score_output<-c()
-for (j in 1:5){
-  smape_err0<-c()
-  mase_err0<-c()
-  score0<-c()
-  for (i in 1:1000){
-    mase_err0<-c(mase_err0,M4_q1[[i]]$mase_err[j])
-    smape_err0<-c(smape_err0,M4_q1[[i]]$smape_err[j])
 
-    if(i == 173){
-      score0<-score0
-    }else{
-      score0<-c(score0,M4_q1[[i]]$score[j])
-    }
-    score0<-mean(score0)
-    score_output<-c(score_output,score0)
+## ## MASE and SMAPE
+## mase_err<-c()
+## smape_err<-c()
+## score_output<-c()
+## for (j in 1:5){
+##   smape_err0<-c()
+##   mase_err0<-c()
+##   score0<-c()
+##   for (i in 1:1000){
+##     mase_err0<-c(mase_err0,M4_q1[[i]]$mase_err[j])
+##     smape_err0<-c(smape_err0,M4_q1[[i]]$smape_err[j])
 
-  }
-  mase_err0<-mean(mase_err0)
-  mase_err<-c(mase_err,mase_err0)
+##     if(i == 173){
+##       score0<-score0
+##     }else{
+##       score0<-c(score0,M4_q1[[i]]$score[j])
+##     }
+##     score0<-mean(score0)
+##     score_output<-c(score_output,score0)
 
-  smape_err0<-mean(smape_err0)
-  smape_err<-c(smape_err,smape_err0)
+##   }
+##   mase_err0<-mean(mase_err0)
+##   mase_err<-c(mase_err,mase_err0)
 
-}
+##   smape_err0<-mean(smape_err0)
+##   smape_err<-c(smape_err,smape_err0)
 
-pred_summary<-rbind(mase_err,smape_err,score_output)
-colnames(pred_summary)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
-rownames(pred_summary)<-c("mase_err","smape_err","log_score")
-pred_summary
+## }
+
+## pred_summary<-rbind(mase_err,smape_err,score_output)
+## colnames(pred_summary)<-c("y_hat_feature","y_hat_w","average","ari_fore","ets_fore")
+## rownames(pred_summary)<-c("mase_err","smape_err","log_score")
+## pred_summary
