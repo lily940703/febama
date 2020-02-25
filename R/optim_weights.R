@@ -35,32 +35,37 @@ log_score<-function(beta, features, prob, intercept){
 ## 5 ETS
 
 ## load historical feature data
+setwd("~/code/febama")
 load("data/historical_log_pred_features.RData")
-for (a in 1:1000)
+for (i_ts in 1:length(data))
 {
   ## Rewrite this loop with palapply
 
-  y<-M4_q1[[a]]$x
-  y_true = M4_q1[[a]]$xx
-  log_pred <- PP[[a]]
+  y <- data[[i_ts]]$x
+  y_true = data[[i_ts]]$xx
+  y_lpd <- lpred_dens[[i_ts]]
+  features_y = feat[[i_ts]]
 
   ## Historical Features and scale information
-  features_y <- FF[[a]]
   features_y_mean = attr(features_y, "scaled:center")
   features_y_sd = attr(features_y, "scaled:scale")
 
   ## maximizing TODO: change to a better optimization tool.
-  set.seed(2019-02-06)
-  w_max<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
-               features = features_y,
-               prob = exp(log_pred),
-               intercept = intercept,
-               method="SANN", control = list(fnscale = -1))
+  ## library("optimx")
+  w_max <- optim(par = runif(1),
+                 fn = log_score,
+                 ## features = features_y,
+                 features = NULL,
+                 prob = exp(y_lpd),
+                 ## intercept = intercept,
+                 intercept = TRUE,
+                 method="BFGS",
+                 control = list(fnscale = -1))
 
   if(w_max$convergence!=0){
     cat("The optimization does not converge in data", a)
   }
-  beta_optim<-w_max$par
+  beta_optim <- w_max$par
 
   ## optimal pool: feature=NULL, intercept =TRUE
   ## w_optim<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
@@ -93,12 +98,19 @@ for (a in 1:1000)
     arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
 
     ## Update features
-    myts <- list(list(x=ts(y_new, frequency = frequency)))
-    myfeatures <- THA_features(my)[[1]]$features
-    myfeatures <- data.matrix(myfeatures)
-    myfeatures_scaled = scale(myfeatures, center = features_y_mean, scale = features_y_sd)
+    if(!is.null(features_y))
+    {
+      myts <- list(list(x=ts(y_new, frequency = frequency)))
+      myfeatures <- THA_features(my)[[1]]$features
+      myfeatures <- data.matrix(myfeatures)
+      myfeatures_scaled = scale(myfeatures, center = features_y_mean, scale = features_y_sd)
+      ## features_y_hat[t, ] <- myfeatures_scaled
+    }
+    else
+    {
+      myfeatures_scaled = NULL
+    }
 
-    features_y_hat[t, ] <- myfeatures_scaled
     ## Update predictive weights
     if(intercept) my_features_scaled = cbind(1, myfeatures_scaled)
 

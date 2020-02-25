@@ -18,14 +18,14 @@ M4_q<-M4[23001:47000]
 
 indices <- sample(length(M4_q))
 
-data <- M4_q[indices[1:10]]
+data <- M4_q[indices[1:2]]
 
 ## FF: 1000 matrix of features
 ## PP: 1000 matrix of log predictive probability density
-## M4_q1: add $ets_fore,$ari_fore, $sigma_ets, $sigma_ari
+## M4_q1: add $ets_fore,$arima_fore, $sigma_ets, $sigma_ari
 ## save
-feat_scaled <- list()
-log_pred <- list()
+feat <- list()
+lpred_dens <- list()
 
 ###----------------------------------------------------------------------------
 ### Model Settings
@@ -42,9 +42,11 @@ model_conf = list(
 ###----------------------------------------------------------------------------
 
 attach(model_conf)
-for (i_ts in 1:1000)
+for (i_ts in 1:length(data))
 {
   ## TODO: parallel this part
+
+  cat("Processing ", i_ts, "\n")
 
   ## A single historical data
   y <- data[[i_ts]]$x
@@ -68,7 +70,7 @@ for (i_ts in 1:1000)
     arima_fit <- auto.arima(y[1:(t - train_h)])
     arima_fore <- forecast(arima_fit, h = train_h, level = PI_level)
     arima_fore_mean <- arima_fore$mean
-    arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
+    arima_fore_sd = (arima_fore$lower - arima_fore$mean)/qnorm(1 - PI_level/100)
 
     ## To keep numeric stability, we calculate log P(y_pred)
     log_pred_densities[(t - history_burn), 1] <- sum(dnorm(y[(t + 1):(t + train_h)], mean = ets_fore_mean,
@@ -76,7 +78,7 @@ for (i_ts in 1:1000)
     log_pred_densities[(t - history_burn), 2] <- sum(dnorm(y[(t + 1):(t + train_h)], mean = arima_fore_mean,
                                                            sd = arima_fore_sd, log = TRUE))
   }
-  log_pred[[i_ts]]<-log_pred_densities
+  lpred_dens[[i_ts]]<-log_pred_densities
 
   ## Calculate historical features
   features_y <- matrix(nrow = length(y) - train_h - history_burn, ncol = 42)
@@ -90,7 +92,7 @@ for (i_ts in 1:1000)
 
   features_y_scaled = scale(features_y, center = TRUE, scale = TRUE)
 
-  feat_scaled[[i_ts]]<-features_y_scaled
+  feat[[i_ts]]<-features_y_scaled
 
   ## Time series plot of features
   ## par(mfrow = c(6, 7), mar = c(5, 0, 0, 0))
@@ -100,4 +102,4 @@ for (i_ts in 1:1000)
   ## }
 
 }
-save(feat_scaled, log_pred, data, model_conf, file="data/historical_log_pred_features.RData")
+save(feat, lpred_dens, data, model_conf, file="data/historical_log_pred_features.RData")
