@@ -70,14 +70,15 @@ for (a in 1:1000)
   ##              method="SANN", control = list(fnscale = -1))
 
   ## forecasting
-  feature_y_hat = matrix(nrow = forecast_h, ncol = 42)
+  features_y_hat = matrix(nrow = forecast_h, ncol = 42)
   y_new_list = matrix(nrow = forecast_h, 1)
   y_new = y
+
   for (t in 1:forecast_h)
-  {
-    ## Calculate predictive features. Each individual model provide an one-step-ahead
-    ## predictive y values, and recalculate features based on optimized pools. This
-    ## will do the forecasting model multiple times (h), consider to simplify it.
+  { ## NOTE: This part is a recursive process, could not be parallelized.  Calculate
+    ## predictive features. Each individual model provide an one-step-ahead predictive y
+    ## values, and recalculate features based on optimized pools. This will do the
+    ## forecasting model multiple times (h), consider to simplify it.
 
     ## ETS model
     ets_fit <- ets(y_new, model = ets_model)
@@ -118,7 +119,6 @@ for (a in 1:1000)
   }
 
 }
-
 
 ## MASE and SMAPE
 mase_err<-c()
