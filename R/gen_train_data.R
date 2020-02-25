@@ -70,7 +70,7 @@ for (a in 1:1000) {
     PP[[a]]<-log_pred_densities
 
     ## Calculate historical features
-    features_y<-matrix(nrow = length(y) - h - history_burn, ncol = 42)
+    features_y <- matrix(nrow = length(y) - h - history_burn, ncol = 42)
     for (t in (history_burn + 1):(length(y) - h))
     {
         ts<-list(list(x=ts(y[1:(t - h)], frequency = frequency)))

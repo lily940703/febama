@@ -3,8 +3,6 @@ load("BMA_PP.RData")
 load("BMA_FF.RData")
 load("M4_q1.RData")
 
-
-
 #' Calculate the log predictive score for a time series with pools of models
 #'
 #'
@@ -32,6 +30,8 @@ log_score<-function(beta, features, prob, intercept){
     out = sum(log(rowSums(w_full * prob)))
     return(out)
 }
+
+
 #################################################################################
 ## performance of five methods
 ## 1 feature based (42 features)
@@ -43,22 +43,16 @@ log_score<-function(beta, features, prob, intercept){
 for (a in 1:1000) {
 
     y<-M4_q1[[a]]$x
-    p<-PP[[a]]
-    features_y<-FF[[a]]
+    log_pred <- PP[[a]]
+    features_y <- FF[[a]]
 
-    ## feature-based method (all 42)
-    ##大于两个周期才能算特征，所以前九期权重赋值0.5
-    ## log_score1 <- log(0.5*p[1,1]+0.5*p[1,2])+log(0.5*p[2,1]+0.5*p[2,2])+log(0.5*p[3,1]+0.5*p[3,2])+log(0.5*p[4,1]+0.5*p[4,2])+log(0.5*p[5,1]+0.5*p[5,2])+log(0.5*p[6,1]+0.5*p[6,2])+log(0.5*p[7,1]+0.5*p[7,2])+log(0.5*p[8,1]+0.5*p[8,2])+log(0.5*p[9,1]+0.5*p[9,2])
-    ## log_score1 = sum(log(rowSums(p[1:9, ])))
-
-    ## maximizing
+    ## maximizing TODO: change to a better optimization tool.
     set.seed(2019-02-06)
     w_max<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
                  features = features_y,
-                 prob = p,
+                 prob = exp(log_pred),
                  intercept = intercept,
                  method="SANN", control = list(fnscale = -1))
-
 
     if(w_max$convergence!=0){
         cat("The optimization does not converge in data", a)
@@ -66,17 +60,42 @@ for (a in 1:1000) {
     beta_optim<-w_max$par
 
     ## optimal pool: feature=NULL, intercept =TRUE
-    w_optim<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
-                 features = NULL,
-                 prob = p,
-                 intercept = TRUE,
-                 method="SANN", control = list(fnscale = -1))
+    ## w_optim<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
+    ##              features = NULL,
+    ##              prob = p,
+    ##              intercept = TRUE,
+    ##              method="SANN", control = list(fnscale = -1))
 
     ## forecasting
     y_hat_feature<-c()
-    for (i in 1:h) {
-        w<-1/(1+exp(-c(1,features_y[length(features_y[,1]),])%*%beta_optim))
-        y_hat<-w*(M4_q1[[a]]$ets_fore[i])+(1-w)*(M4_q1[[a]]$ari_fore[i])
+
+    ## ETS model
+    ets_fit <- ets(y, model = ets_model)
+    ets_fore<-forecast(ets_fit, h = forecast_h, level = PI_level)
+    ets_fore_mean <- ets_fore$mean
+    ets_fore_sd = (ets_fore$lower - ets_fore$mean)/qnorm(1 - PI_level/100)
+
+    ## ARIMA model
+    arima_fit <- auto.arima(y)
+    arima_fore <- forecast(arima_fit, h = forecast_h, level = PI_level)
+    arima_fore_mean <- arima_fore$mean
+    arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
+
+    log_pred_densities[, 1] <- sum(dnorm(y[(t + 1):(t + h)], mean = ets_fore_mean,
+                                         sd = ets_fore_sd, log = TRUE))
+    log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
+                                         sd = arima_fore_sd, log = TRUE))
+
+
+    feature_y_hat = matrix(nrow = length(y) - h - history_burn, ncol = 42)
+    for (t in 1:forecast_h)
+    {
+        ## Calculate predictive features. Simple version: for each individual model, do
+        ## the rolling features based on predictive y values. Hybrid version: each
+        ## individual model provide an one-step-ahead predictive y values, and recalculate
+        ## features based on optimized pools.
+
+        ## Simple version
         y<-c(y,y_hat)
         ts<-list(x=ts(y[1:length(y)],frequency = 1))
         ts1<-list(ts)
@@ -84,6 +103,12 @@ for (a in 1:1000) {
         features<-data.matrix(features)
         features_y<-rbind(features_y,features)
         y_hat_feature<-c(y_hat_feature,y_hat)
+
+        ## calculate predictive weights
+        if(intercept) features = cbind(rep(1, nrow(prob)), features)
+        exp_lin = exp(features%*%beta)
+        w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
+        w_full = cbind(w, 1 - rowSums(w)) # T-by-n
     }
 
     M4_q1[[a]]$y_hat_feature<-y_hat_feature
