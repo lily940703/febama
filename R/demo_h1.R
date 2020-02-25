@@ -126,6 +126,8 @@ load("M4_q1.RData")
 #' @param prob T-by-n predictive densities, currently n=2.
 #' @param intercept TRUE or FALSE Should intercept be used in feature weights?
 #' @return
+#' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
+#' @note TODO: log_score_grad(beta, features, prob, intercepts)
 #' @author Feng Li
 log_score<-function(beta, features, prob, intercept){
 
@@ -140,7 +142,6 @@ log_score<-function(beta, features, prob, intercept){
     w_full = cbind(w, 1 - rowSums(w))
 
     out = sum(log(rowSums(w_full * prob)))
-
     return(out)
 }
 
@@ -186,7 +187,7 @@ for (a in 1:1000) {
 
     ## forecasting
     y_hat_feature<-c()
-    for (i in 1:8) {
+    for (i in 1:h) {
         w<-1/(1+exp(-c(1,features_y[length(features_y[,1]),])%*%beta_optim))
         y_hat<-w*(M4_q1[[a]]$ets_fore[i])+(1-w)*(M4_q1[[a]]$ari_fore[i])
         y<-c(y,y_hat)
