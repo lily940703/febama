@@ -41,8 +41,7 @@ setwd("~/code/febama")
 load("data/historical_log_pred_features.RData")
 
 intercept = TRUE
-forecast_h = 1
-
+forecast_h = 8
 
 lpds = 0
 lpds_simple = 0
@@ -71,15 +70,14 @@ for (i_ts in 1:length(data))
 
   ## maximizing TODO: change to a better optimization tool.
   ## library("optimx")
-  w_max <- try(optim(par = 0, #runif(1),
+  w_max <- try(optim(par = runif(1),
                  fn = log_score,
                  features = features_y,
                  prob = exp(y_lpd),
                  ## intercept = intercept,
                  intercept = TRUE,
-                 method="BFGS",
+                 method="L-BFGS-B",
                  control = list(fnscale = -1))
-
                )
 
   if(is(w_max, "try-error")) browser()
@@ -152,7 +150,9 @@ for (i_ts in 1:length(data))
     pred_densities[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean,
                                   sd = arima_fore_sd)
 
-    print(pred_densities)
+    ## print(pred_densities[t, ])
+    print(w_full)
+
     lpds = lpds + log(sum(pred_densities[t,] * w_full))
     lpds_simple = lpds_simple + log(mean(pred_densities[t, ]))
   }
