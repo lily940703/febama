@@ -73,12 +73,14 @@ for (a in 1:1000) {
     features_y <- matrix(nrow = length(y) - h - history_burn, ncol = 42)
     for (t in (history_burn + 1):(length(y) - h))
     {
-        ts<-list(list(x=ts(y[1:(t - h)], frequency = frequency)))
-        myfeatures <- THA_features(ts)[[1]]$features
+        myts <-list(list(x=ts(y[1:(t - h)], frequency = frequency)))
+        myfeatures <- THA_features(myts)[[1]]$features
         myfeatures<-data.matrix(myfeatures)
         features_y[t, ] <- myfeatures
     }
     FF[[a]]<-features_y
+
+    ## TODO: Standardize features
 
     ## Time series plot of features
     ## par(mfrow = c(6, 7), mar = c(5, 0, 0, 0))

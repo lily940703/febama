@@ -69,46 +69,50 @@ for (a in 1:1000) {
     ## forecasting
     y_hat_feature<-c()
 
-    ## ETS model
-    ets_fit <- ets(y, model = ets_model)
-    ets_fore<-forecast(ets_fit, h = forecast_h, level = PI_level)
-    ets_fore_mean <- ets_fore$mean
-    ets_fore_sd = (ets_fore$lower - ets_fore$mean)/qnorm(1 - PI_level/100)
-
-    ## ARIMA model
-    arima_fit <- auto.arima(y)
-    arima_fore <- forecast(arima_fit, h = forecast_h, level = PI_level)
-    arima_fore_mean <- arima_fore$mean
-    arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
-
-    log_pred_densities[, 1] <- sum(dnorm(y[(t + 1):(t + h)], mean = ets_fore_mean,
-                                         sd = ets_fore_sd, log = TRUE))
-    log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
-                                         sd = arima_fore_sd, log = TRUE))
-
-
-    feature_y_hat = matrix(nrow = length(y) - h - history_burn, ncol = 42)
+    feature_y_hat = matrix(nrow = forecast_h, ncol = 42)
+    y_new = y
     for (t in 1:forecast_h)
     {
-        ## Calculate predictive features. Simple version: for each individual model, do
-        ## the rolling features based on predictive y values. Hybrid version: each
-        ## individual model provide an one-step-ahead predictive y values, and recalculate
-        ## features based on optimized pools.
+        ## Calculate predictive features. Each individual model provide an one-step-ahead
+        ## predictive y values, and recalculate features based on optimized pools. This
+        ## will do the forecasting model multiple times (h), consider to simplify it.
 
-        ## Simple version
-        y<-c(y,y_hat)
-        ts<-list(x=ts(y[1:length(y)],frequency = 1))
-        ts1<-list(ts)
-        features <- THA_features(ts1)[[1]]$features
-        features<-data.matrix(features)
-        features_y<-rbind(features_y,features)
-        y_hat_feature<-c(y_hat_feature,y_hat)
+        ## ETS model
+        ets_fit <- ets(y_new, model = ets_model)
+        ets_fore<-forecast(ets_fit, h = 1, level = PI_level)
+        ets_fore_mean <- ets_fore$mean
+        ets_fore_sd = (ets_fore$lower - ets_fore$mean)/qnorm(1 - PI_level/100)
 
-        ## calculate predictive weights
-        if(intercept) features = cbind(rep(1, nrow(prob)), features)
+        ## ARIMA model
+        arima_fit <- auto.arima(y_new)
+        arima_fore <- forecast(arima_fit, h = forecast_h, level = PI_level)
+        arima_fore_mean <- arima_fore$mean
+        arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
+
+        ## Update features
+        myts <- list(list(x=ts(y_new, frequency = frequency)))
+        myfeatures <- THA_features(my)[[1]]$features
+        myfeatures <- data.matrix(myfeatures)
+        features_y_hat[t, ] <- myfeatures
+
+
+        ## Update predictive weights
+        if(intercept) features = cbind(1, features)
         exp_lin = exp(features%*%beta)
         w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
         w_full = cbind(w, 1 - rowSums(w)) # T-by-n
+
+
+        log_pred_densities[, 1] <- sum(dnorm(y[(t + 1):(t + h)], mean = ets_fore_mean,
+                                             sd = ets_fore_sd, log = TRUE))
+        log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
+                                             sd = arima_fore_sd, log = TRUE))
+
+
+
+        ## Simple version
+        y<-c(y,y_hat)
+
     }
 
     M4_q1[[a]]$y_hat_feature<-y_hat_feature
