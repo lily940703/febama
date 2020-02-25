@@ -1,5 +1,3 @@
-## load data
-
 #' Calculate the log predictive score for a time series with pools of models
 #'
 #'
@@ -14,18 +12,18 @@
 #' @author Feng Li
 log_score<-function(beta, features, prob, intercept){
 
-    if(intercept) features = cbind(rep(1, nrow(prob)), features)
+  if(intercept) features = cbind(rep(1, nrow(prob)), features)
 
-    exp_lin = exp(features%*%beta)
+  exp_lin = exp(features%*%beta)
 
-    w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
+  w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
 
-    ## Full (T-by-n) matrix. To keep identification, only first (n-1) are connected with
-    ## features. TODO: Common features?
-    w_full = cbind(w, 1 - rowSums(w)) # T-by-n
+  ## Full (T-by-n) matrix. To keep identification, only first (n-1) are connected with
+  ## features. TODO: Common features?
+  w_full = cbind(w, 1 - rowSums(w)) # T-by-n
 
-    out = sum(log(rowSums(w_full * prob)))
-    return(out)
+  out = sum(log(rowSums(w_full * prob)))
+  return(out)
 }
 
 #################################################################################
@@ -36,80 +34,88 @@ log_score<-function(beta, features, prob, intercept){
 ## 4 ARIMA
 ## 5 ETS
 
+## load historical feature data
+load("data/historical_log_pred_features.RData")
 for (a in 1:1000)
 {
-    ## Rewrite this loop with palapply
+  ## Rewrite this loop with palapply
 
-    y<-M4_q1[[a]]$x
-    y_true = M4_q1[[a]]$xx
-    log_pred <- PP[[a]]
-    features_y <- FF[[a]]
+  y<-M4_q1[[a]]$x
+  y_true = M4_q1[[a]]$xx
+  log_pred <- PP[[a]]
 
-    ## maximizing TODO: change to a better optimization tool.
-    set.seed(2019-02-06)
-    w_max<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
-                 features = features_y,
-                 prob = exp(log_pred),
-                 intercept = intercept,
-                 method="SANN", control = list(fnscale = -1))
+  ## Historical Features and scale information
+  features_y <- FF[[a]]
+  features_y_mean = attr(features_y, "scaled:center")
+  features_y_sd = attr(features_y, "scaled:scale")
 
-    if(w_max$convergence!=0){
-        cat("The optimization does not converge in data", a)
-    }
-    beta_optim<-w_max$par
+  ## maximizing TODO: change to a better optimization tool.
+  set.seed(2019-02-06)
+  w_max<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
+               features = features_y,
+               prob = exp(log_pred),
+               intercept = intercept,
+               method="SANN", control = list(fnscale = -1))
 
-    ## optimal pool: feature=NULL, intercept =TRUE
-    ## w_optim<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
-    ##              features = NULL,
-    ##              prob = p,
-    ##              intercept = TRUE,
-    ##              method="SANN", control = list(fnscale = -1))
+  if(w_max$convergence!=0){
+    cat("The optimization does not converge in data", a)
+  }
+  beta_optim<-w_max$par
 
-    ## forecasting
-    feature_y_hat = matrix(nrow = forecast_h, ncol = 42)
-    y_new_list = matrix(nrow = forecast_h, 1)
-    y_new = y
-    for (t in 1:forecast_h)
-    {
-        ## Calculate predictive features. Each individual model provide an one-step-ahead
-        ## predictive y values, and recalculate features based on optimized pools. This
-        ## will do the forecasting model multiple times (h), consider to simplify it.
+  ## optimal pool: feature=NULL, intercept =TRUE
+  ## w_optim<-optim(fn=log_score, par=runif(43, min = 0, max = 0),
+  ##              features = NULL,
+  ##              prob = p,
+  ##              intercept = TRUE,
+  ##              method="SANN", control = list(fnscale = -1))
 
-        ## ETS model
-        ets_fit <- ets(y_new, model = ets_model)
-        ets_fore<-forecast(ets_fit, h = 1, level = PI_level)
-        ets_fore_mean <- ets_fore$mean
-        ets_fore_sd = (ets_fore$lower - ets_fore$mean)/qnorm(1 - PI_level/100)
+  ## forecasting
+  feature_y_hat = matrix(nrow = forecast_h, ncol = 42)
+  y_new_list = matrix(nrow = forecast_h, 1)
+  y_new = y
+  for (t in 1:forecast_h)
+  {
+    ## Calculate predictive features. Each individual model provide an one-step-ahead
+    ## predictive y values, and recalculate features based on optimized pools. This
+    ## will do the forecasting model multiple times (h), consider to simplify it.
 
-        ## ARIMA model
-        arima_fit <- auto.arima(y_new)
-        arima_fore <- forecast(arima_fit, h = forecast_h, level = PI_level)
-        arima_fore_mean <- arima_fore$mean
-        arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
+    ## ETS model
+    ets_fit <- ets(y_new, model = ets_model)
+    ets_fore<-forecast(ets_fit, h = 1, level = PI_level)
+    ets_fore_mean <- ets_fore$mean
+    ets_fore_sd = (ets_fore$lower - ets_fore$mean)/qnorm(1 - PI_level/100)
 
-        ## Update features
-        myts <- list(list(x=ts(y_new, frequency = frequency)))
-        myfeatures <- THA_features(my)[[1]]$features
-        myfeatures <- data.matrix(myfeatures)
-        features_y_hat[t, ] <- myfeatures
+    ## ARIMA model
+    arima_fit <- auto.arima(y_new)
+    arima_fore <- forecast(arima_fit, h = forecast_h, level = PI_level)
+    arima_fore_mean <- arima_fore$mean
+    arima_fore_sd = (ari_fore$lower - ari_fore$mean)/qnorm(1 - PI_level/100)
 
-        ## Update predictive weights
-        if(intercept) features = cbind(1, features)
-        exp_lin = exp(features%*%beta_optim)
-        w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
-        w_full = cbind(w, 1 - rowSums(w)) # T-by-n
+    ## Update features
+    myts <- list(list(x=ts(y_new, frequency = frequency)))
+    myfeatures <- THA_features(my)[[1]]$features
+    myfeatures <- data.matrix(myfeatures)
+    myfeatures_scaled = scale(myfeatures, center = features_y_mean, scale = features_y_sd)
 
-        ## The final pooled y
-        y_new = sum(cbind(ets_fore_mean, arima_fore_mean) * w_full)
-        y_new_list[t] = y_new
+    features_y_hat[t, ] <- myfeatures_scaled
+    ## Update predictive weights
+    if(intercept) my_features_scaled = cbind(1, myfeatures_scaled)
 
-        ## The predictive log score, we need true y here.
-        ## log_pred_densities[, 1] <- sum(dnorm(y[(t + 1):(t + h)], mean = ets_fore_mean,
-        ##                                      sd = ets_fore_sd, log = TRUE))
-        ## log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
-        ##                                      sd = arima_fore_sd, log = TRUE))
-        ## out = sum(log(rowSums(w_full * prob)))
-    }
+    exp_lin = exp(my_features_scaled%*%beta_optim)
+    w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
+    w_full = cbind(w, 1 - rowSums(w)) # T-by-n
+
+    ## The final pooled y
+    y_new = sum(cbind(ets_fore_mean, arima_fore_mean) * w_full)
+    y_new_list[t] = y_new
+
+    ## The predictive log score, we need true y here.
+    ## log_pred_densities[, 1] <- sum(dnorm(y[(t + 1):(t + h)], mean = ets_fore_mean,
+    ##                                      sd = ets_fore_sd, log = TRUE))
+    ## log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
+    ##                                      sd = arima_fore_sd, log = TRUE))
+    ## out = sum(log(rowSums(w_full * prob)))
+  }
 
 }
 
@@ -119,27 +125,27 @@ mase_err<-c()
 smape_err<-c()
 score_output<-c()
 for (j in 1:5){
-    smape_err0<-c()
-    mase_err0<-c()
-    score0<-c()
-    for (i in 1:1000){
-        mase_err0<-c(mase_err0,M4_q1[[i]]$mase_err[j])
-        smape_err0<-c(smape_err0,M4_q1[[i]]$smape_err[j])
+  smape_err0<-c()
+  mase_err0<-c()
+  score0<-c()
+  for (i in 1:1000){
+    mase_err0<-c(mase_err0,M4_q1[[i]]$mase_err[j])
+    smape_err0<-c(smape_err0,M4_q1[[i]]$smape_err[j])
 
-        if(i == 173){
-            score0<-score0
-        }else{
-            score0<-c(score0,M4_q1[[i]]$score[j])
-        }
-        score0<-mean(score0)
-        score_output<-c(score_output,score0)
-
+    if(i == 173){
+      score0<-score0
+    }else{
+      score0<-c(score0,M4_q1[[i]]$score[j])
     }
-    mase_err0<-mean(mase_err0)
-    mase_err<-c(mase_err,mase_err0)
+    score0<-mean(score0)
+    score_output<-c(score_output,score0)
 
-    smape_err0<-mean(smape_err0)
-    smape_err<-c(smape_err,smape_err0)
+  }
+  mase_err0<-mean(mase_err0)
+  mase_err<-c(mase_err,mase_err0)
+
+  smape_err0<-mean(smape_err0)
+  smape_err<-c(smape_err,smape_err0)
 
 }
 
