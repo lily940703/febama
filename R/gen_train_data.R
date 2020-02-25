@@ -66,6 +66,9 @@ for (a in 1:1000) {
                                              sd = ets_fore_sd, log = TRUE))
         log_pred_densities[, 2] <- sum(dnorm(y[(t + 1):(t + h)], mean = arima_fore_mean,
                                              sd = arima_fore_sd, log = TRUE))
+
+
+
     }
     PP[[a]]<-log_pred_densities
 
