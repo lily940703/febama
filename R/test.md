@@ -2,6 +2,7 @@
 
 ### Some queations
 
+
 ### Some tests  
 
 * 1 one step prediction (optimal pool, SA, ETS, ARIMA) 
@@ -59,4 +60,6 @@ So, when adding so much features, the current method is obviously ineffective.
        lpds lpds_simple  lpds_ets lpds_arima
 1 -25.16407   -42.45068 -56.53136  -37.76633
 ```
-
+### Plan for the following week
+*  Expanding the number of data to verify the advantage of the method of optimal pool.  
+**Then parallel is needed.** *How to simplify the fit and forecast procedure? * 
