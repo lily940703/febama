@@ -1,7 +1,7 @@
 ### Update code of gen_train_data.R
 
 ### Some queations
-* Standardization of time series and features  
+* 1 Standardization of time series and features  
 ```
  y <- data[[i_ts]]$x
 
@@ -29,7 +29,7 @@ if(!is.null(features_y))
       myfeatures_scaled = NULL
     }
 ```
-* The formula for calculating weights
+* 2 The formula for calculating weights
 ```
 log_score<-function(beta, features, prob, intercept){
 
