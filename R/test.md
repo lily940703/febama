@@ -62,4 +62,7 @@ So, when adding so much features, the current method is obviously ineffective.
 ```
 ### Plan for the following week
 *  Expanding the number of data to verify the advantage of the method of optimal pool.  
-**Then parallel is needed.** *How to simplify the fit and forecast procedure? * 
+**Then parallel is needed.** How to simplify the fit and forecast procedure?   
+*  Add features gradually.  
+**change to a better optimization**
+
