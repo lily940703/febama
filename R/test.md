@@ -1,7 +1,52 @@
 ### Update code of gen_train_data.R
 
 ### Some queations
+* Standardization of time series and features  
+```
+ y <- data[[i_ts]]$x
 
+  y01 = scale(y, center = TRUE, scale = TRUE)
+  y_mean = attr(y01, "scaled:center")
+  y_sd = attr(y01, "scaled:scale")
+  y01 = as.numeric(y01)
+
+  y_true = data[[i_ts]]$xx
+  y01_true = as.numeric(scale(y_true, center = y_mean, scale = y_sd))
+
+```
+```
+if(!is.null(features_y))
+    {
+      myts <- list(list(x=ts(y_new, frequency = frequency)))
+      myfeatures <- THA_features(myts)[[1]]$features
+      myfeatures <- data.matrix(myfeatures)
+      myfeatures_scaled = scale(myfeatures, center = features_y_mean, scale = features_y_sd)
+      # null in myfeatures_scaled
+      myfeatures_scaled[is.na( myfeatures_scaled)] <- 0
+      ## features_y_hat[t, ] <- myfeatures_scaled
+    } else
+    {
+      myfeatures_scaled = NULL
+    }
+```
+* The formula for calculating weights
+```
+log_score<-function(beta, features, prob, intercept){
+
+  if(intercept) features = cbind(rep(1, nrow(prob)), features)
+
+  exp_lin = exp(features%*%beta)
+
+  w <- exp_lin/(1+rowSums(exp_lin)) # T-by-(n-1)
+
+  ## Full (T-by-n) matrix. To keep identification, only first (n-1) are connected with
+  ## features. TODO: Common features?
+  w_full = cbind(w, 1 - rowSums(w)) # T-by-n
+
+  out = sum(log(rowSums(w_full * prob)))
+  return(out)
+}
+```
 
 ### Some tests  
 
@@ -61,8 +106,8 @@ So, when adding so much features, the current method is obviously ineffective.
 1 -25.16407   -42.45068 -56.53136  -37.76633
 ```
 ### Plan for the following week
-*  Expanding the number of data to verify the advantage of the method of optimal pool.  
+*  Expanding the number of data to verify the advantage of the method of optimal pool (including mase and smape error).  
 **Then parallel is needed.** How to simplify the fit and forecast procedure?   
 *  Add features gradually.  
-**change to a better optimization**
+**Then change to a better optimization.**
 
