@@ -1,10 +1,10 @@
-* Update code of gen_train_data.R
+### Update code of gen_train_data.R
 
-* Some queations
+### Some queations
 
-* Some tests  
+### Some tests  
 
-*1 one step prediction (optimal pool, SA, ETS, ARIMA) *
+* 1 one step prediction (optimal pool, SA, ETS, ARIMA) 
 ```
 > print(data.frame(lpds = lpds, lpds_simple = lpds_simple,
 +                  lpds_ets = lpds_ets , lpds_arima = lpds_arima ))
@@ -16,7 +16,7 @@
  [1] 9.999999e-01 5.266312e-01 3.438070e-01 6.713627e-01 1.278169e-01 3.026081e-01 6.436414e-09 9.999996e-01
  [9] 5.147197e-02 3.322197e-01
 ```
-**2 one step prediction (feature-based) **
+* 2 one step prediction (feature-based) 
 ```
 w_max<-try(optim(fn=log_score,
                   par=runif(43, min = 0, max = 0),
