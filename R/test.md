@@ -50,3 +50,13 @@ w_max<-try(optim(fn=log_score,
 ```
 The optimization is convergent, but the optimal solution obtained each time is absolutely different, resulting in great fluctuation of the calculated weights.  
 So, when adding so much features, the current method is obviously ineffective.
+
+* 3 Eight-step prediction (optimal pool, SA, ETS, ARIMA) 
+```
+> print(data.frame(lpds = lpds, lpds_simple = lpds_simple,
++                  lpds_ets = lpds_ets , lpds_arima = lpds_arima ))
+
+       lpds lpds_simple  lpds_ets lpds_arima
+1 -25.16407   -42.45068 -56.53136  -37.76633
+```
+
