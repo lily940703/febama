@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 #' Calculate the log predictive score for a time series with pools of models
 #'
 #'
@@ -211,7 +212,7 @@ forecast_feature_results <-
 cl <- makeCluster(2)
 registerDoParallel(cl)
 data_forecast_feature <-
-  foreach(i_ts = 1:2) %dopar% 
+  foreach(i_ts = 1:length(data_forecast)) %dopar% 
   forecast_feature_results(
     data_forecast[[i_ts]],
     model_conf,
@@ -246,3 +247,4 @@ forecast_feature_performance<-function(data){
 forecast_feature_performance(data_forecast_feature)
 
 #------------------------------------------------------------------------------------# 
+
