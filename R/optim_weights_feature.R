@@ -27,6 +27,40 @@ log_score<-function(beta, features, features_select = NULL, prob, intercept){
   return(out)
 }
 
+gradient<-function(beta, features, features_select = NULL, prob, intercept){
+  if(is.null(features_select)){
+    features0<-features
+  }else{
+    features0<-data.matrix(features[,features_select])
+  }
+  if(intercept) features0 = cbind(rep(1, nrow(prob)), features0)
+  
+  ex = exp(features0 %*% beta)
+  ex_sum = rowSums(ex) 
+  n = dim(prob)[2]
+  gradient0<-function(i, t, p){
+    out0 = (
+      ex[t,i] * (
+      p[t,i] *(1 + ex_sum[t] - ex[t,i]) 
+      - sum(p[t,-c(i,n)] * ex[t,-i]) - p[t,n] 
+      ) * features0[t,] )/ (
+      (sum(ex[t,] * p[t, 1:(n-1)]) + p[t,n] ) * (1 + ex_sum[t])
+    )
+    return(out0)
+  }
+  
+  out_t<-c()
+  out_i<-c()
+  for (i in 1:(n-1)) {
+     for (t in 1:length(prob[,1])) {
+      out_t<-cbind(out_t, gradient0(i, t, prob))
+     }
+    out_i<-cbind(out_i, rowSums(out_t))
+  }
+  return(out_i)
+}
+
+
 
 #################################################################################
 ## performance of four methods
@@ -63,27 +97,206 @@ optim_beta_feature<-function( lpd_feature, features_select,intercept = FALSE){
   features_y<-features_y[rowSums(prob==0)!=2,]
 
   ## maximizing TODO: change to a better optimization tool.
-  w_max <- try(optim(par = 0,
+  w_max <- try(optim(par = c(0,0),
                  fn = log_score,
+                 gr = gradient,
                  features = features_y,
                  prob = prob0,
                  features_select = features_select,
                  intercept = intercept,
-                 method="CG",
+                 method="BFGS",
                  control = list(fnscale = -1)) #max
                )
   
   #if(is(w_max, "try-error")) browser()
   beta_optim <- w_max$par
-  return(list(beta_optim=beta_optim,features_select = features_select))
+  return(list(beta_optim = beta_optim, value = w_max$value, features_select = features_select))
 }
 
 cl <- makeCluster(2)
 registerDoParallel(cl)
 optimal_beta_feature <- foreach(i_ts = 1:length(data)) %dopar% 
-  optim_beta_feature(lpd_feature_yearly[[i_ts]], features_select=12, intercept =FALSE)
+  optim_beta_feature(lpd_feature_yearly[[i_ts]], 
+                     features_select=c(10,12,16,17,40), intercept = TRUE)
 stopCluster(cl)
 
+#----------------------------------------------------------#
+## Function  SGLD
+
+gra_prior <- function (x, mean, sigma){
+  n <- length(x)
+  gra <- (
+    -((2 * pi)^(-n/2)) * (det(sigma)^(-1/2)) 
+    * as.numeric( exp(-0.5 * t(x-mean) %*% solve(sigma) %*% (x-mean)) )
+    * solve(sigma) %*% (x-mean)
+  )
+  return(gra)
+}
+
+library(numDeriv)
+library(mvtnorm)
+library(base)
+library(MASS)
+SGLD <- function(data, logLik, gradient_logLik, prior, gradient_prior, start, minibatchSize=0.01,
+                 stepsize = 0.01, tol = 1e-5, iter = 5000, samplesize = 0.1,
+                 features_select, intercept, gama = 0.55, a = 0.15, b = 100 ){
+  library(mvtnorm)
+  library(MASS)
+  beta <- start
+  
+  prob <- exp(data$lpd)
+  # when pd=0, delete or assign a minimum?
+  prob[prob == 0] <- 1e-323
+  
+  features <- data$feat
+  logLik0 <- logLik (beta = beta, features = features, features_select = features_select, 
+                     prob = prob, intercept = intercept)
+  pri0 <- prior(beta, mean=matrix(0, length(beta), 1),sigma = diag(length(beta)))
+  post0 <- pri0 * exp(logLik0)
+  i <- 1
+  res <- list(beta = start, logscore = logLik0, posterior = post0, stepsize = NA)
+  
+  if(length(prob[,1]) <= 10){
+    minibatchSize = 1
+  }else if(length(prob[,1]) > 10 & length(prob[,1]) <=100 ){
+    minibatchSize = 0.1
+  }else {
+    minibatchSize = 0.01
+  }
+  
+  repeat{
+    mini <- sample(1:length(prob[,1]),
+                   ceiling(minibatchSize*length(prob[,1])))
+    prob1 <- prob[mini,]
+    features1 <- features[mini,]
+    
+    stepsize1 <- a*(b + i)^(-gama)
+    beta <- (beta + stepsize1 * (gradient_prior(beta, mean=matrix(0, length(beta), 1),sigma = diag(length(beta)))
+                                 / prior(as.vector(beta), mean=matrix(0, length(beta), 1),sigma = diag(length(beta)))
+    )
+    + stepsize1 * (1/minibatchSize) * gradient_logLik(beta = beta, features = features1, 
+                                                      features_select = features_select, 
+                                                      prob= prob1, intercept= intercept)
+    + mvrnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
+    )
+    
+    logLik1 <- logLik (beta = beta, features = features, features_select = features_select, 
+                       prob = prob, intercept = intercept)
+    pri1 <- prior(as.vector(beta), mean=matrix(0, length(beta), 1),sigma = diag(length(beta)))
+    post1 <- pri1 * exp(logLik1)
+    
+    res$beta <- rbind(res$beta, t(beta))
+    res$logscore <- rbind(res$logscore, logLik1)
+    res$posterior <- rbind(res$posterior, post1)
+    res$stepsize <- rbind(res$stepsize, stepsize1)
+    
+    if (i >= iter)
+      break
+    i <- i+1
+  }
+  
+  n = samplesize * iter
+  beta_SGLD <- tail(res$beta, n)
+  
+  # simple average
+  #beta_out <- colMeans(beta_SGLD)
+  
+  # weighted
+  weights <- tail(res$stepsize, n) / sum(tail(res$stepsize, n))
+  beta_out <- colSums(beta_SGLD * matrix(rep(weights,length(start)), ncol = length(start)))
+  
+  return(list(res = res, beta_optim = beta_out, features_select = features_select ))
+}
+
+cl <- makeCluster(2)
+registerDoParallel(cl)
+set.seed(2020-3-27)
+SGLD_beta_feature10 <- foreach(i_ts = 1:length(data)) %dopar% 
+  SGLD (data = lpd_feature_yearly[[i_ts]], logLik = log_score , gradient_logLik=gradient,
+               prior = dmvnorm, gradient_prior = gra_prior, start = c(0,0), minibatchSize=0.01,
+               stepsize = 0.01, tol = 1e-5, iter = 1000, samplesize = 0.1,
+               features_select = c(10), intercept = TRUE, gama = 0.55, a = 0.05, b = 10
+  )
+stopCluster(cl)
+
+## plot samples
+
+library(ggplot2)
+library(plotly)
+
+nx <- ny <- 100
+xg <- seq(-5, 0, len = nx)
+yg <- seq(-5, 0, len = ny)
+g <- expand.grid(xg, yg)
+z <- c()
+for (i in 1:(nx*ny)) {
+  z <- rbind(z, log_score (t(g[i,]), lpd_feature0$feat, features_select = c(10), 
+                           exp(lpd_feature0$lpd), intercept=TRUE))
+}
+f_long <- data.frame(x = g[,1], y = g[,2], z = z)
+
+# all samples
+beta_sample <- as.data.frame(tail(res1$res$beta,1001))
+out <- ggplot(f_long, aes(x, y, z = z)) + 
+  geom_raster(aes(fill = z)) + 
+  geom_contour(colour = "white", bins = 20) +
+  guides(fill = FALSE) +
+  geom_path(data = beta_sample, aes(V1, V2, z=0), col = 2, arrow = arrow()) +
+  geom_point(data = beta_sample, aes(V1, V2, z=0), size = 1, col = 2) +
+  geom_point(data = tail(beta_sample,1), aes(V1, V2, z=0), size = 2, col = 4) +
+  geom_point(data = as.data.frame(t(res1$beta)), aes(V1, V2, z=0), size = 2, col = 1) +
+  xlab("beta0") +
+  ylab("beta1") +
+  ggtitle("SGLD")
+ggplotly(out)
+
+# tail(,100)
+beta_sample <- as.data.frame(tail(res1$res$beta,100))
+out <- ggplot(f_long, aes(x, y, z = z)) + 
+  geom_raster(aes(fill = z)) + 
+  geom_contour(colour = "white", bins = 20) +
+  guides(fill = FALSE) +
+  geom_path(data = beta_sample, aes(V1, V2, z=0), col = 2, arrow = arrow()) +
+  geom_point(data = beta_sample, aes(V1, V2, z=0), size = 1, col = 2) +
+  geom_point(data = tail(beta_sample,1), aes(V1, V2, z=0), size = 2, col = 4) +
+  geom_point(data = as.data.frame(t(res1$beta)), aes(V1, V2, z=0), size = 2, col = 1) +
+  xlab("beta0") +
+  ylab("beta1") +
+  ggtitle("SGLD for Posterior Sampling (100)")
+ggplotly(out)
+
+# path
+beta_sample <- as.data.frame(tail(res1$res$beta,2001))
+nr <- nrow(beta_sample)
+ind <- c(1:10, (1:floor(nr/100))*100, nr)
+beta_sample <- beta_sample[ind,]
+out <- ggplot(f_long, aes(x, y, z = z)) + 
+  geom_raster(aes(fill = z)) + 
+  geom_contour(colour = "white", bins = 20) +
+  guides(fill = FALSE) +
+  geom_path(data = beta_sample, aes(V1, V2, z=0), col = 2, arrow = arrow()) +
+  # geom_segment(aes(x = tail(beta_sample$V1,-1), y = tail(beta_sample$V2,-1), z=0,
+  #                  xend = head(beta_sample$v1,-1), yend = head(beta_sample$V2,-1), zend=0,
+  #                  colour = "segment"), 
+  #              data = beta_sample) +
+  geom_point(data = beta_sample, aes(V1, V2, z=0), size = 2, col = 2) +
+  geom_point(data = tail(beta_sample,1), aes(V1, V2, z=0), size = 2, col = 4) +
+  geom_point(data = as.data.frame(t(res1$beta)), aes(V1, V2, z=0), size = 2, col = 1) +
+  xlab("beta0") +
+  ylab("beta1") +
+  ggtitle("The convergence path of SGLD")
+ggplotly(out)
+
+# ggplot stepsize
+step<-function(gama = 0.55, a = 0.15, b = 100, t){
+  steps <- a*(b + t)^(-gama)
+  return(steps)
+}
+x <- seq(1,5000,1)
+steps <- step(t = x)
+data <- as.data.frame(cbind(x,steps))
+ggplot(data, aes(x , steps)) +
+  geom_line(color="red")+xlab(" iteration")+ylab("stepsize") 
 
 #----------------------------------------------------------#
 ## Function  forecast_results
@@ -127,6 +340,8 @@ forecast_feature_results <-
     lpds = 0
     pred_densities = matrix(NA, forecast_h, 2)
     
+    forecast_h = model_conf$forecast_h
+    
     for (t in 1:forecast_h)
     {
       ## NOTE: This part is a recursive process, could not be parallelized.  Calculate
@@ -166,8 +381,9 @@ forecast_feature_results <-
       ## Update predictive weights
       myfeatures_scaled <-
         myfeatures_scaled[, optimal_beta_feature$features_select]
-      if (intercept)
-        myfeatures_scaled = cbind(1, myfeatures_scaled)
+      if (intercept){
+        myfeatures_scaled = cbind(1, t(myfeatures_scaled))
+      }
       exp_lin = exp(myfeatures_scaled %*% optimal_beta_feature$beta_optim)
       if (exp_lin == Inf) {
         w <- matrix(1)
@@ -189,6 +405,12 @@ forecast_feature_results <-
       pred_densities[t, 2] <-
         dnorm(y01_true[t], mean = arima_fore_mean, sd = arima_fore_sd)
       lpds0 = log(sum(pred_densities[t, ] * w_full))
+      if(lpds0 == -Inf){
+        lpds0 = log(1e-323)
+      }else{
+        lpds0 =lpds0 
+      }
+        
       lpds = lpds + lpds0
     }
     data$ff_feature <- y_hat_matrix
@@ -211,16 +433,23 @@ forecast_feature_results <-
 
 cl <- makeCluster(2)
 registerDoParallel(cl)
-data_forecast_feature <-
-  foreach(i_ts = 1:length(data_forecast)) %dopar% 
+data_forecast_feature_SGLD10 <- foreach(i_ts = 1:length(data)) %dopar% 
   forecast_feature_results(
-    data_forecast[[i_ts]],
+    data[[i_ts]],
     model_conf,
-    intercept = FALSE,
+    intercept = TRUE,
     lpd_feature_yearly[[i_ts]],
-    optimal_beta_feature[[i_ts]]
+    SGLD_beta_feature10[[i_ts]]
   )
 stopCluster(cl)
+
+save(data_forecast_feature_SGLD, file="E:/time series/R code/febama/data/data_forecast_feature_yearly_SGLD.RData")
+load("E:/time series/R code/febama/data/data_forecast_feature_yearly_SGLD.RData")
+
+for (i in 1:1000) {
+  if(data_forecast_feature_SGLD[[i]]$err_feature[1] == -Inf)
+    print(i)
+}
 
 save(data_forecast_feature, file="E:/time series/R code/feature-based-bayesian-model-averaging/data/data_forecast_feature_yearly.RData")
 #----------------------------------------------------------#
@@ -232,8 +461,8 @@ load("E:/time series/R code/feature-based-bayesian-model-averaging/data/data_for
 forecast_feature_performance<-function(data){ 
   # log score
   performance<-c()
-  for (i_ts in 1:length(data_forecast_feature)) {
-    performance<-rbind(performance,data_forecast_feature[[i_ts]]$err_feature) 
+  for (i_ts in 1:length(data)) {
+    performance<-rbind(performance,data[[i_ts]]$err_feature) 
   }
   performance_out1<- sum(performance[,1])
                                  
@@ -244,6 +473,7 @@ forecast_feature_performance<-function(data){
   return(performance_out)
 }
 
+forecast_feature_performance(data_forecast_feature_SGLD10)
 forecast_feature_performance(data_forecast_feature)
 
 #------------------------------------------------------------------------------------# 
