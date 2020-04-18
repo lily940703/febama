@@ -74,6 +74,108 @@ stopCluster(cl)
 
 
 #----------------------------------------------------------#
+## Function  lpd_feature
+## param: a ts data with $x
+## return: lpd_feature (a list including two matrices of probability densities and features)
+lpd_feature <- function(data, model_conf) {
+  
+  feature_window = model_conf$feature_window
+  roll = model_conf$roll
+  frequency = model_conf$frequency
+  history_burn = model_conf$history_burn
+  ets_model = model_conf$ets_model
+  forecast_h = model_conf$forecast_h
+  train_h = model_conf$train_h
+  PI_level = model_conf$PI_level
+  
+  ## A single historical data
+  y <- data$x
+  y1 = scale(y, center = TRUE, scale = TRUE)
+  y_mean = attr(y1, "scaled:center")
+  y_sd = attr(y1, "scaled:scale")
+  
+  y1 = as.numeric(y1)
+  
+  ## Calculate historical log predictive density
+  log_pred_densities <-
+    matrix(nrow = length(y) - history_burn - train_h + 1,
+           ncol = 2)
+  
+  for (t in (history_burn):(length(y) - train_h))
+  {
+    ## TODO: We may simplify this to assume the fit and forecast procedure is
+    ## invariant with certain time period to save time.
+    if(is.null(roll)){
+      y01 <- y1[1:t]
+    }else if (t < roll){
+      y01 <- y1[1:t]
+    }else{
+      y01 <- y1[(t-roll+1):t]
+    }
+    
+    ## ETS model
+    ets_fit <- ets(y01, model = ets_model)
+    ets_fore <- forecast(ets_fit, h = train_h, level = PI_level)
+    ets_fore_mean <- ets_fore$mean
+    ## forecast.ets does not directly provide predictive variance but we could infer from
+    ## predict interval.  Remember that PI = pred_mean -/+ qnorm(PI_level)*pred_sd
+    ets_fore_sd = (ets_fore$lower - ets_fore$mean) / qnorm(1 - PI_level /
+                                                             100)
+    
+    ## ARIMA model
+    arima_fit <- auto.arima(y01)
+    arima_fore <- forecast(arima_fit, h = train_h, level = PI_level)
+    arima_fore_mean <- arima_fore$mean
+    arima_fore_sd = (arima_fore$lower - arima_fore$mean) / qnorm(1 - PI_level /
+                                                                   100)
+    
+    ## To keep numeric stability, we calculate log P(y_pred)
+    log_pred_densities[(t - history_burn + 1), 1] <-
+      sum(dnorm(
+        y1[(t + 1):(t + train_h)],
+        mean = ets_fore_mean,
+        sd = ets_fore_sd,
+        log = TRUE
+      ))
+    log_pred_densities[(t - history_burn + 1), 2] <-
+      sum(dnorm(
+        y1[(t + 1):(t + train_h)],
+        mean = arima_fore_mean,
+        sd = arima_fore_sd,
+        log = TRUE
+      ))
+  }
+  
+  ## Calculate historical features
+  features_y <-
+    matrix(nrow = length(y) - train_h - history_burn + 1,
+           ncol = 42)
+  myts <- list(list(x = ts(y[1:history_burn], frequency = frequency)))
+  myfeatures <- THA_features(myts)[[1]]$features
+  names <- colnames(myfeatures) 
+  colnames(features_y) <- names
+  
+  if(is.null(feature_window)){
+    for (t in (history_burn):(length(y) - train_h))
+    {
+      myts <- list(list(x = ts(y[1:t], frequency = frequency)))
+      myfeatures <- THA_features(myts)[[1]]$features
+      myfeatures <- data.matrix(myfeatures)
+      features_y[(t - history_burn + 1),] <- myfeatures
+    }
+  }else{
+    features_y <- features_window( y, window = feature_window, 
+                                   history_burn, train_h)
+  }
+  
+  features_y_scaled = scale(features_y, center = TRUE, scale = TRUE)
+  
+  lpd_feature <-
+    list(lpd = log_pred_densities, feat = features_y_scaled)
+  return(lpd_feature)
+}
+
+#----------------------------------------------------------#
 
 # delete the features with NaN
 feature_clean <- function(lpd_feature){
