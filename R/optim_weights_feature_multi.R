@@ -498,8 +498,8 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
       res0$stepsize <- c(res0$stepsize, stepsize1)
       res0$prior <- c(res0$prior, prior1)
       
-      # For every β, after iter iterations of SGLD, take the mean of the last 10% of samples.
-      # If comment if{}, beta_out is a matrix of the last sample of each β.
+      # For every 尾, after iter iterations of SGLD, take the mean of the last 10% of samples.
+      # If comment if{}, beta_out is a matrix of the last sample of each 尾.
       if(t == iter){
         if(iter < 10) {ind = 1:(iter+1)} else {
           ind =( iter + 1 - floor(0.1 * iter)): (iter+1)}

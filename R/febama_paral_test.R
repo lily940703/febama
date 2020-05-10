@@ -6,7 +6,7 @@ library(M4comp2018)
 set.seed(2020-0503)
 data_test <- M4[sample(c(23001:47000), 1000)]
 #load("lpd_feature_Y500.RData")
-  
+
   model_conf = list(
     frequency = 4
     , ets_model = "ANN" # simple exponential smoothing with additive errors
@@ -19,14 +19,14 @@ data_test <- M4[sample(c(23001:47000), 1000)]
     # , fore_model = list("ets_fore", "auto.arima_fore" )
     , fore_model = list("ets_fore",  "naive_fore", "rw_drift_fore")
   )
-  
+
 # @references FFORMA: Feature-based Forecast Model Averaging
 ets_fore <- function(x, train_h, PI_level) {
   ets_fit <- forecast::ets(x, model = "ANN")
   ets_fore <- forecast(ets_fit, h = train_h, level = PI_level)
   ets_fore_mean <- ets_fore$mean
   ets_fore_sd <- (ets_fore$lower - ets_fore$mean) / qnorm(1 - PI_level / 100)
-  return(list(ets_fore_mean = as.numeric(ets_fore_mean), 
+  return(list(ets_fore_mean = as.numeric(ets_fore_mean),
               ets_fore_sd = as.numeric(ets_fore_sd) ))
 }
 
@@ -35,7 +35,7 @@ auto.arima_fore <- function(x, train_h, PI_level) {
   arima_fore <- forecast(arima_fit, h = train_h, level = PI_level)
   arima_fore_mean <- arima_fore$mean
   arima_fore_sd <- (arima_fore$lower - arima_fore$mean) / qnorm(1 - PI_level /100)
-  return(list(arima_fore_mean = as.numeric(arima_fore_mean), 
+  return(list(arima_fore_mean = as.numeric(arima_fore_mean),
               arima_fore_sd = as.numeric(arima_fore_sd) ))
 }
 
@@ -44,7 +44,7 @@ naive_fore <- function(x, train_h, PI_level) {
   naive_fit <- forecast::naive(x, h = train_h, level = PI_level)
   naive_fore_mean <- naive_fit$mean
   naive_fore_sd <- (naive_fit$lower - naive_fit$mean) / qnorm(1 - PI_level /100)
-  return(list(naive_fore_mean = as.numeric(naive_fore_mean), 
+  return(list(naive_fore_mean = as.numeric(naive_fore_mean),
               naive_fore_sd = as.numeric(naive_fore_sd) ))
 }
 
@@ -52,7 +52,7 @@ rw_drift_fore <- function(x, train_h, PI_level) {
   rw_drift_fit <- forecast::rwf(x, drift=TRUE, h = train_h, level = PI_level)
   rw_drift_fore_mean <- rw_drift_fit$mean
   rw_drift_fore_sd <- (rw_drift_fit$lower - rw_drift_fit$mean) / qnorm(1 - PI_level /100)
-  return(list(rw_drift_fore_mean = as.numeric(rw_drift_fore_mean), 
+  return(list(rw_drift_fore_mean = as.numeric(rw_drift_fore_mean),
               rw_drift_fore_sd = as.numeric(rw_drift_fore_sd) ))
 }
 
@@ -60,7 +60,7 @@ snaive_fore <- function(x, train_h, PI_level) {
   snaive_fit <- forecast::snaive(x, h = train_h, level = PI_level)
   snaive_fore_mean <- snaive_fit$mean
   snaive_fore_sd <- (snaive_fit$lower - snaive_fit$mean) / qnorm(1 - PI_level /100)
-  return(list(snaive_fore_mean = as.numeric(snaive_fore_mean), 
+  return(list(snaive_fore_mean = as.numeric(snaive_fore_mean),
               snaive_fore_sd = as.numeric(snaive_fore_sd) ))
 }
 
@@ -68,8 +68,8 @@ snaive_fore <- function(x, train_h, PI_level) {
 #   nnetar_fit <- forecast::nnetar(x)
 #   nnetar_fore <- forecast(nnetar_fit, h = train_h, level = PI_level)
 #   nnetar_fore_mean <- nnetar_fore$mean
-#   nnetar_fore_sd <- 
-#   return(list(nnetar_fore_mean = as.numeric(nnetar_fore_mean), 
+#   nnetar_fore_sd <-
+#   return(list(nnetar_fore_mean = as.numeric(nnetar_fore_mean),
 #               nnetar_fore_sd = as.numeric(nnetar_fore_sd) ))
 # }
 
@@ -77,9 +77,9 @@ snaive_fore <- function(x, train_h, PI_level) {
 #   tbats_fit <- forecast::tbats(x, use.parallel=FALSE)
 #   tbats_fore <- forecast(tbats_fit, h = train_h, level = PI_level)
 #   tbats_fore_mean <- tbats_fore$mean
-#   #Ô¤²âÇø¼ä²»¹ØÓÚµãÔ¤²â¶Ô³Æ
-#   tbats_fore_sd <- 
-#   return(list(tbats_fore_mean = as.numeric(tbats_fore_mean), 
+#   #é¢„æµ‹åŒºé—´ä¸å…³äºŽç‚¹é¢„æµ‹å¯¹ç§°
+#   tbats_fore_sd <-
+#   return(list(tbats_fore_mean = as.numeric(tbats_fore_mean),
 #               tbats_fore_sd = as.numeric(tbats_fore_sd) ))
 # }
 
@@ -90,7 +90,7 @@ stlm_ar_fore <- function(x, train_h, PI_level) {
   stlm_ar_fore <- forecast(stlm_ar_fit, h = train_h, level = PI_level)
   stlm_ar_fore_mean <- stlm_ar_fore$mean
   stlm_ar_fore_sd <- (stlm_ar_fore$lower - stlm_ar_fore$mean) / qnorm(1 - PI_level /100)
-  return(list(stlm_ar_fore_mean = as.numeric(stlm_ar_fore_mean), 
+  return(list(stlm_ar_fore_mean = as.numeric(stlm_ar_fore_mean),
               stlm_ar_fore_sd = as.numeric(stlm_ar_fore_sd) ))
 }
 
@@ -98,7 +98,7 @@ thetaf_fore <- function(x, train_h, PI_level) {
   thetaf_fit <- forecast::thetaf(x, h = train_h, level = PI_level)
   thetaf_fore_mean <- thetaf_fit$mean
   thetaf_fore_sd <- (thetaf_fit$lower - thetaf_fit$mean) / qnorm(1 - PI_level /100)
-  return(list(thetaf_fore_mean = as.numeric(thetaf_fore_mean), 
+  return(list(thetaf_fore_mean = as.numeric(thetaf_fore_mean),
               thetaf_fore_sd = as.numeric(thetaf_fore_sd) ))
 }
 
@@ -114,7 +114,7 @@ thetaf_fore <- function(x, train_h, PI_level) {
 ## return: lpd_feature (a list including two matrices of log probability densities and features)
 
 lpd_feature_multi <- function(data, model_conf) {
-  
+
   feature_window = model_conf$feature_window
   roll = model_conf$roll
   frequency = model_conf$frequency
@@ -124,22 +124,22 @@ lpd_feature_multi <- function(data, model_conf) {
   train_h = model_conf$train_h
   PI_level = model_conf$PI_level
   fore_model = model_conf$fore_model
-  
+
   ## A single historical data
   y <- data$x
   y1 = scale(y, center = TRUE, scale = TRUE)
   y_mean = attr(y1, "scaled:center")
   y_sd = attr(y1, "scaled:scale")
-  
+
   y1 = as.numeric(y1)
-  
+
   ## Calculate historical log predictive density
   num_model <- length(fore_model)
   log_pred_densities <-
     matrix(nrow = length(y) - history_burn - train_h + 1,
            ncol = num_model)
   colnames(log_pred_densities) <- unlist(fore_model)
-  
+
   for (t in (history_burn):(length(y) - train_h))
   {
     ## TODO: We may simplify this to assume the fit and forecast procedure is
@@ -151,7 +151,7 @@ lpd_feature_multi <- function(data, model_conf) {
     }else{
       y01 <- y1[(t-roll+1):t]
     }
-    
+
     ## To keep numeric stability, we calculate log P(y_pred)
     use_model <- lapply(fore_model, function(method){
       method_fun <- get(method)
@@ -168,16 +168,16 @@ lpd_feature_multi <- function(data, model_conf) {
     log_pred_den[log_pred_den > log(1e+308)] <- log(1e+308)
     log_pred_densities[(t - history_burn + 1), ] <- log_pred_den
   }
-  
+
   ## Calculate historical features
   features_y <-
     matrix(nrow = length(y) - train_h - history_burn + 1,
            ncol = 42)
   myts <- list(list(x = ts(y[1:history_burn], frequency = frequency)))
   myfeatures <- THA_features(myts)[[1]]$features
-  names <- colnames(myfeatures) 
+  names <- colnames(myfeatures)
   colnames(features_y) <- names
-  
+
   if(is.null(feature_window)){
     for (t in (history_burn):(length(y) - train_h))
     {
@@ -187,12 +187,12 @@ lpd_feature_multi <- function(data, model_conf) {
       features_y[(t - history_burn + 1),] <- myfeatures
     }
   }else{
-    features_y <- features_window( y, window = feature_window, 
+    features_y <- features_window( y, window = feature_window,
                                    history_burn, train_h)
   }
-  
+
   features_y_scaled = scale(features_y, center = TRUE, scale = TRUE)
-  
+
   lpd_feature <-
     list(lpd = log_pred_densities, feat = features_y_scaled)
   return(lpd_feature)
@@ -220,7 +220,7 @@ features_window<-function( y, window, history_burn, train_h){
 }
 
 
-##Delete the features with NaN 
+##Delete the features with NaN
 feature_clean <- function(lpd_feature){
   for (i in 1:length(lpd_feature)) {
     ind <- which(is.nan(lpd_feature[[i]]$feat), arr.ind = T)[,2]
@@ -240,7 +240,7 @@ log_score <- function(beta, features, features_select = NULL, prob, intercept = 
   }
   if(intercept) features0 = cbind(rep(1, nrow(prob)), features0)
   num_model <- dim(prob)[2]
-  # ±ÜÃâInf/Inf
+  # é¿å…Inf/Inf
   me <- features0 %*% beta
   me[me>709] <- 709
   exp_lin = exp(me)
@@ -258,14 +258,14 @@ gradient_logscore <- function(beta, features, features_select = NULL, prob, inte
     features0<-data.matrix(features[,features_select])
   }
   if(intercept) features0 = cbind(rep(1, nrow(prob)), features0)
-  
+
   ex = exp(features0 %*% beta)
   ex[ex > exp(700)] = exp(700)
-  
-  ex_sum = rowSums(ex) 
+
+  ex_sum = rowSums(ex)
   n = dim(prob)[2]
   gradient0<-function(i, t, p){
-    m = p[t,i] *(1 + ex_sum[t] - ex[t,i]) 
+    m = p[t,i] *(1 + ex_sum[t] - ex[t,i])
     if(m > 1e+308) m = 1e+308
     s = sum(p[t,-c(i,n)] * ex[t,-i]) - p[t,n]
     if(s > 1e+308) s = 1e+308
@@ -280,7 +280,7 @@ gradient_logscore <- function(beta, features, features_select = NULL, prob, inte
     out0 = a/b
     return(out0)
   }
-  
+
   out_t<-c()
   out_i<-c()
   for (i in 1:(n-1)) {
@@ -300,7 +300,7 @@ proposal_I <- function(n){
     }
   }
   return(I)
-} 
+}
 
 # p(beta | I) * p(I)
 # beta = [beta1, beta2,..., beta(n-1)]
@@ -335,14 +335,14 @@ gradient_prior <- function(beta, I, sig){
 # a1 * prior (beta[,2:4], I, sig = 10)
 
 
-log_posterior <- function(data, beta, I, prior = prior, 
+log_posterior <- function(data, beta, I, prior = prior,
                           logLik = log_score, sig = 10){
-  pri <- prior(beta, I, sig = sig) 
+  pri <- prior(beta, I, sig = sig)
   features_select <- which(I==1)
   prob <- exp(data$lpd)
   prob[prob == 0] <- 1e-323
   features <- data$feat
-  LS <- logLik(beta = beta, features = features, features_select = features_select, 
+  LS <- logLik(beta = beta, features = features, features_select = features_select,
                prob = prob, intercept = TRUE)
   log_post <- log(pri) + LS
   return(log_post)
@@ -352,12 +352,12 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
                      stepsize = NULL, tol = 1e-5, iter = 5000, samplesize = 0.1,sig = 10,
                      features_select, I, intercept = TRUE, gama = 0.55, a = 0.4, b = 10 ){
   beta_all <- start
-  
+
   prob <- exp(data$lpd)
   prob[prob == 0] <- 1e-323
   num_model <- dim(prob)[2]
   features <- data$feat
-  
+
   if(! is.null(minibatchSize)){
     minibatchSize = minibatchSize
   } else if (length(prob[,1]) <= 10){
@@ -365,64 +365,64 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
   }else {
     minibatchSize = 0.1
   }
-  
+
   res <- list()
   for (i in 1:(num_model-1)) {
     prior0 <- prior(beta_all, I, sig = sig)
-    logLik0 <- logLik (beta = beta_all, features = features, 
-                       features_select = features_select, 
+    logLik0 <- logLik (beta = beta_all, features = features,
+                       features_select = features_select,
                        prob = prob, intercept = intercept)
-    logpost0 <- log_posterior (data, beta_all, I, prior = prior, 
+    logpost0 <- log_posterior (data, beta_all, I, prior = prior,
                                logLik = log_score, sig = sig)
-    res0 <- list(beta = beta_all[,i], logscore = logLik0, logpost = logpost0, 
+    res0 <- list(beta = beta_all[,i], logscore = logLik0, logpost = logpost0,
                  stepsize = NA, prior = prior0)
-    
+
     if(iter != 0){
       for (t in 1:iter ) {
-        
+
         beta <- beta_all[,i]
         mini <- sample(1:length(prob[,1]),
                        ceiling(minibatchSize*length(prob[,1])))
         prob1 <- prob[mini,]
         features1 <- features[mini,]
-        
+
         if(is.null(stepsize)){
           stepsize1 <- a * (b + t) ^ (-gama)
         }else{
           stepsize1 <- stepsize
         }
-        
+
         prior1 <- prior(beta_all, I, sig = sig)
-        
+
         beta <- (beta + stepsize1 * (gradient_prior(beta_all, I, sig)[,i]/ prior1)
-                 + stepsize1 * (1/minibatchSize) 
-                 * gradient_logLik(beta = beta_all, features = features1, 
-                                   features_select = features_select, 
+                 + stepsize1 * (1/minibatchSize)
+                 * gradient_logLik(beta = beta_all, features = features1,
+                                   features_select = features_select,
                                    prob= prob1, intercept= intercept)[,i]
                  + mvrnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
         )
         beta_all[,i] <- beta
-        
+
         prior1 <- prior(beta_all, I, sig = sig)
-        logLik1 <- logLik (beta = beta_all, features = features, features_select = features_select, 
+        logLik1 <- logLik (beta = beta_all, features = features, features_select = features_select,
                            prob = prob, intercept = intercept)
-        logpost1 <- log_posterior (data, beta_all, I, prior = prior, 
+        logpost1 <- log_posterior (data, beta_all, I, prior = prior,
                                    logLik = log_score, sig = sig)
         res0$beta <- cbind(res0$beta, beta)
         res0$logscore <- c(res0$logscore, logLik1)
         res0$logpost <- c(res0$logpost, logpost1)
         res0$stepsize <- c(res0$stepsize, stepsize1)
         res0$prior <- c(res0$prior, prior1)
-        
-        # Íê³Éiter´ÎSGLDºó£¬¶ÔÓÚÃ¿¸ö¦Â£¬È¡ºó10%Ñù±¾µÄ¾ùÖµ
-        # Èô×¢ÊÍµôif{}£¬ beta_outÎªÃ¿¸ö¦ÂµÄ×îºóÒ»¸öÑù±¾×é³ÉµÄ¾ØÕó
-        
+
+        # å®Œæˆiteræ¬¡SGLDåŽï¼Œå¯¹äºŽæ¯ä¸ªÎ²ï¼Œå–åŽ10%æ ·æœ¬çš„å‡å€¼
+        # è‹¥æ³¨é‡ŠæŽ‰if{}ï¼Œ beta_outä¸ºæ¯ä¸ªÎ²çš„æœ€åŽä¸€ä¸ªæ ·æœ¬ç»„æˆçš„çŸ©é˜µ
+
         if(t == iter){
           if(iter < 10) {ind = 1:(iter+1)} else {
             ind =( iter + 1 - floor(0.1 * iter)): (iter+1)}
           if(dim(res0$beta)[1] == 1){
             beta_mean <- mean(res0$beta[, ind])
-            
+
           }else{
             beta_mean <- rowMeans(res0$beta[, ind])
           }
@@ -448,20 +448,20 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
 }
 
 
-MH_step <- function(x, beta0, data, logp = log_posterior, 
+MH_step <- function(x, beta0, data, logp = log_posterior,
                     proposal = proposal_I, sig = 10){
   beta_start <- beta0
   rownames(beta_start) <- c("0", which(x == 1))
   xp <- proposal(length(x))
-  beta1 <- matrix(NA, nrow = (length(which(xp == 1)) + 1), 
+  beta1 <- matrix(NA, nrow = (length(which(xp == 1)) + 1),
                   ncol = dim(beta_start)[2])
   rownames(beta1) <- c("0", which(xp == 1))
   ind <- c("0", which(x==xp & xp==1))
   beta1[ind, ] <- beta_start[ind, ]
   beta1[is.na(beta1)] <-0
-  alpha <- min(1, exp(logp(data, beta = beta1, I = xp, prior = prior, 
-                           logLik = log_score, sig = sig) - 
-                        logp(data, beta = beta_start, I = x, prior = prior, 
+  alpha <- min(1, exp(logp(data, beta = beta1, I = xp, prior = prior,
+                           logLik = log_score, sig = sig) -
+                        logp(data, beta = beta_start, I = x, prior = prior,
                              logLik = log_score, sig = sig)))
   if (runif(1) < alpha){
     accept <- 1
@@ -470,11 +470,11 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
   }else{
     accept <- 0
   }
-  return(list(I = x, beta_start = beta_start, accept = accept))  
+  return(list(I = x, beta_start = beta_start, accept = accept))
 }
 
-SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL, 
-                    SGLD_iter = 100, SGLD_iter_noVS = 10, VS_iter = 100, 
+SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
+                    SGLD_iter = 100, SGLD_iter_noVS = 10, VS_iter = 100,
                     minibatchSize = NULL, sig = 10){
   feature_num <- dim(data$feat)[2]
   model_num <- dim(data$lpd)[2]
@@ -496,21 +496,21 @@ SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
       features_select <- which(I[,i]==1)
       beta_start <- beta_start
     }
-    res_SGLD <- SGLD_gib(data = data, logLik = log_score, gradient_logLik = gradient_logscore, 
+    res_SGLD <- SGLD_gib(data = data, logLik = log_score, gradient_logLik = gradient_logscore,
                          prior = prior, start = beta_start, I = I[,i],
                          minibatchSize = minibatchSize, stepsize = stepsize,
                          iter = iter, features_select = features_select, sig = sig )
     B[[i]] <- res_SGLD$beta_out
     result_all[[i]] <- res_SGLD
     I0 <- I[,i]
-    MH <- MH_step (x = I0, beta0 = B[[i]], data =data, 
+    MH <- MH_step (x = I0, beta0 = B[[i]], data =data,
                    logp = log_posterior, proposal = proposal_I)
     I0 <- MH$I
     beta_start <- MH$beta_start
     accept <- MH$accept
-    # Èç¹ûIÃ»ÓÐ±»½ÓÊÕ£¬SGLDµü´ú´ÎÊýÎªSGLD_iter_noVS£»
-    # Èç¹ûI±»½ÓÊÕ£¬SGLDµü´ú´ÎÊýÎªSGLD_iter
-    # ²»×ö´Ë²½ £¬¿ÉÒÔ×¢ÊÍµôif(){}
+    # å¦‚æžœIæ²¡æœ‰è¢«æŽ¥æ”¶ï¼ŒSGLDè¿­ä»£æ¬¡æ•°ä¸ºSGLD_iter_noVSï¼›
+    # å¦‚æžœIè¢«æŽ¥æ”¶ï¼ŒSGLDè¿­ä»£æ¬¡æ•°ä¸ºSGLD_iter
+    # ä¸åšæ­¤æ­¥ ï¼Œå¯ä»¥æ³¨é‡ŠæŽ‰if(){}
     if(accept == 0) {iter = SGLD_iter_noVS}else{iter = SGLD_iter}
   }
   return(list(I = I, B = B, result_all = result_all, acceptance = accept_num/VS_iter))
@@ -528,9 +528,9 @@ beta_prepare <- function(res_SGLD_VS){
 }
 
 
-forecast_feature_results_multi <-function(data, model_conf, intercept = T, 
+forecast_feature_results_multi <-function(data, model_conf, intercept = T,
                                           lpd_feature, beta_pre) {
-  
+
   #attach(model_conf)
   feature_window = model_conf$feature_window
   roll = model_conf$roll
@@ -541,11 +541,11 @@ forecast_feature_results_multi <-function(data, model_conf, intercept = T,
   train_h = model_conf$train_h
   PI_level = model_conf$PI_level
   fore_model = model_conf$fore_model
-  
-  
+
+
   ## forecasting
   y_hat_matrix <- matrix(ncol = forecast_h, nrow = 1)
-  
+
   y <- data$x
   y01 = scale(y, center = TRUE, scale = TRUE)
   y_mean = attr(y01, "scaled:center")
@@ -555,41 +555,41 @@ forecast_feature_results_multi <-function(data, model_conf, intercept = T,
   y01_true = as.numeric(scale(y_true, center = y_mean, scale = y_sd))
   y_new = y01
   y_new_nonsd = as.numeric(y)
-  
+
   features_y = lpd_feature$feat
   features_y_mean = lpd_feature$feat_mean
   features_y_sd = lpd_feature$feat_sd
-  
+
   lpds = 0
   pred_densities = matrix(NA, forecast_h, length(fore_model))
   colnames(pred_densities) <- unlist(fore_model)
   w_full_mean_h <- c()
-  
+
   w_full_all <- list()
   for (t in 1:forecast_h)
   {
-    
+
     ## Update features
     if(!is.null(feature_window)){
       y_new_nonsd1 <- tail(y_new_nonsd, feature_window)
     }else{
       y_new_nonsd1 <- y_new_nonsd
     }
-    
+
     if (!is.null(features_y))
     {
-      #ÓÃ·Ç±ê×¼»¯µÄÊý¾Ý¼ÆËãÌØÕ÷
+      #ç”¨éžæ ‡å‡†åŒ–çš„æ•°æ®è®¡ç®—ç‰¹å¾
       myts <- list(list(x = ts(y_new_nonsd1, frequency = frequency)))
       myfeatures <- THA_features(myts)[[1]]$features
       myfeatures <- data.matrix(myfeatures)
       myfeatures <- myfeatures[, colnames(myfeatures) %in% colnames(features_y)]
-      myfeatures_scaled = scale(t(myfeatures), 
+      myfeatures_scaled = scale(t(myfeatures),
                                 center = features_y_mean, scale = features_y_sd)
     } else
     {
       myfeatures_scaled = NULL
     }
-    
+
     ## Update predictive weights
     w_get <- function(beta_pre, myfeatures_scaled){
       myfeatures_scaled <- myfeatures_scaled[, beta_pre$features_select]
@@ -597,59 +597,59 @@ forecast_feature_results_multi <-function(data, model_conf, intercept = T,
         myfeatures_scaled = cbind(1, t(myfeatures_scaled))
       }
       exp_lin = exp(matrix(myfeatures_scaled, nrow = 1) %*% beta_pre$beta)
-      #  ±ÜÃâInf
+      #  é¿å…Inf
       exp_lin[exp_lin > exp(709)] <- exp(709)
       w <- exp_lin / (1 + rowSums(exp_lin))
       w_full = cbind(w, 1 - rowSums(w))
       return(w_full)
     }
-    
+
     w_full <- sapply(beta_pre, w_get, myfeatures_scaled = myfeatures_scaled)
     w_full_all[[t]] <- w_full
     w_full_mean <- rowMeans(w_full)
     w_full_mean_h <- cbind(w_full_mean_h, w_full_mean)
-    
+
     # forecast
     if(is.null(roll)){
       y_new1 <- y_new
     }else{
       y_new1 <- tail(y_new, roll)
     }
-    
+
     multi_fore <- lapply(fore_model, function(method){
       method_fun <- get(method)
       mean_sd <- method_fun (y_new1, train_h, PI_level)
       return(mean_sd)
     })
-    
+
     y_pred_multi <- sum (w_full_mean * (sapply(multi_fore, function(mean_sd){
       return(mean_sd[[1]])
     })))
-    
+
     y_new = c(y_new, y_pred_multi)
     y_new_nonsd = c(y_new_nonsd, (y_pred_multi * y_sd + y_mean))
     y_hat_matrix[1, t] <- y_pred_multi * y_sd + y_mean
-    
+
     # The predictive log score
     pd_multi <- sapply(multi_fore, function(mean_sd){
       dnorm(y01_true[t], mean = mean_sd[[1]], sd = mean_sd[[2]], log = F)
     })
     lpds_multi = log(sum(pd_multi * w_full_mean))
-    
+
     if(lpds_multi < log(1e-323)){
       lpds_multi = log(1e-323)
     }else{
-      lpds_multi = lpds_multi 
+      lpds_multi = lpds_multi
     }
     lpds = lpds + lpds_multi
   }
-  
+
   data$ff_feature <- y_hat_matrix
   colnames(w_full_mean_h) <- seq(1, forecast_h, 1)
   rownames(w_full_mean_h) <- unlist(fore_model)
   data$w_time_varying <- w_full_mean_h
   data$w_detail <- w_full_all
-  
+
   ### mase smape
   ff <- data$ff_feature
   insample <- as.numeric(data$x)
@@ -661,21 +661,21 @@ forecast_feature_results_multi <-function(data, model_conf, intercept = T,
   mase_err <- abs(ff - outsample) / masep
   mase_err_h <- rowMeans(mase_err)
   smape_err_h <- rowMeans(smape_err)
-  
+
   data$err_feature <- cbind(lpds, mase_err_h, smape_err_h)
   return(data)
 }
 
-forecast_feature_performance<-function(data){ 
+forecast_feature_performance<-function(data){
   # log score
   performance<-c()
   for (i_ts in 1:length(data)) {
-    performance<-rbind(performance,data[[i_ts]]$err_feature) 
+    performance<-rbind(performance,data[[i_ts]]$err_feature)
   }
   performance_out1<- sum(performance[,1])
-  
+
   performance_out2<- colMeans(performance[,2:3])
-  
+
   performance_out<-cbind(performance_out1,t(performance_out2))
   colnames(performance_out)<-c("Log score","Mase","Smape")
   return(performance_out)
@@ -689,7 +689,7 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
   prob[prob == 0] <- 1e-323
   num_model <- length(lpd_feature$lpd[1,])
   ini <-  t(data.matrix(rep(0, num_model-1)))
-  
+
   w_max <- try(optim(
     par = ini,
     fn = log_score,
@@ -701,9 +701,9 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
     method = "L-BFGS-B",
     #method = "BFGS",
     control = list(fnscale = -1)
-  ) 
   )
-  
+  )
+
   if (w_max$convergence != 0) {
     w_max <- try(optim(
       par = ini,
@@ -716,7 +716,7 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
       #method = "L-BFGS-B",
       method = "BFGS",
       control = list(fnscale = -1)
-    ) 
+    )
     )
   }
   beta_optim <- w_max$par
@@ -724,7 +724,7 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
 }
 
 forecast_results_nofea<-function(data, model_conf, optimal_beta){
-  
+
   roll = model_conf$roll
   frequency = model_conf$frequency
   history_burn = model_conf$history_burn
@@ -733,13 +733,13 @@ forecast_results_nofea<-function(data, model_conf, optimal_beta){
   train_h = model_conf$train_h
   PI_level = model_conf$PI_level
   fore_model = model_conf$fore_model
-  
+
   ## forecasting
   y_hat_matrix <- matrix(ncol = forecast_h, nrow = 2 + length(fore_model))
   rownames(y_hat_matrix)<-c("Optimal pool","SA", unlist(fore_model))
   lpds_all<- matrix(ncol = forecast_h, nrow = 2 + length(fore_model))
   rownames(lpds_all)<-c("Optimal pool","SA", unlist(fore_model))
-  
+
   y <- data$x
   y01 = scale(y, center = TRUE, scale = TRUE)
   y_mean = attr(y01, "scaled:center")
@@ -747,28 +747,28 @@ forecast_results_nofea<-function(data, model_conf, optimal_beta){
   y01 = as.numeric(y01)
   y_true = data$xx
   y01_true = as.numeric(scale(y_true, center = y_mean, scale = y_sd))
-  
+
   # T by 2+n
   y_new <- matrix(rep(y01,2 + length(fore_model)), ncol = 2 + length(fore_model))
   colnames(y_new) <- c("Optimal pool","SA", unlist(fore_model))
-  
+
   pred_densities = matrix(NA, forecast_h, length(fore_model))
   pred_densities_simple = matrix(NA, forecast_h, length(fore_model))
   pred_densities_single = matrix(NA, forecast_h, length(fore_model))
-  
+
   ## get weights (optimal pool)
   exp_lin = exp(optimal_beta$beta_optim)
   w <- exp_lin/(1+rowSums(exp_lin)) # 1-by-(n-1)
   w_full = cbind(w, 1 - rowSums(w)) # 1-by-n
-  
+
   for (t in 1:forecast_h)
-  { 
+  {
     if(is.null(roll)){
       y_new1 <- y_new
     }else{
       y_new1 <- tail(y_new, roll)
     }
-    
+
     op_fore <- lapply(fore_model, function(method){
       method_fun <- get(method)
       mean_sd <- method_fun (y_new1[,1], train_h, PI_level)
@@ -781,7 +781,7 @@ forecast_results_nofea<-function(data, model_conf, optimal_beta){
       dnorm(y01_true[t], mean = mean_sd[[1]], sd = mean_sd[[2]], log = F)
     })
     lpds_op = log(sum(pd_op * w_full))
-    
+
     sa_fore <- lapply(fore_model, function(method){
       method_fun <- get(method)
       mean_sd <- method_fun (y_new1[,2], train_h, PI_level)
@@ -794,7 +794,7 @@ forecast_results_nofea<-function(data, model_conf, optimal_beta){
       dnorm(y01_true[t], mean = mean_sd[[1]], sd = mean_sd[[2]], log = F)
     })
     lpds_sa = log(mean(pd_sa))
-    
+
     y_pred <- c()
     lpd_model <- c()
     for (i in 1 : length(fore_model)) {
@@ -808,12 +808,12 @@ forecast_results_nofea<-function(data, model_conf, optimal_beta){
     y_new <- rbind(y_new, y_pred_all)
     lpds <- c(lpds_op, lpds_sa, lpd_model)
     lpds[lpds < log(1e-323)] = log(1e-323)
-    
+
     y_hat_matrix[,t] <- y_pred_all
     lpds_all[,t] <- lpds
-  }    
+  }
   data$logscore<- rowSums(lpds_all)
-  
+
   ### mase smape
   ff<- y_sd * y_hat_matrix + y_mean
   data$ff<-ff
@@ -829,23 +829,23 @@ forecast_results_nofea<-function(data, model_conf, optimal_beta){
   return(data)
 }
 
-forecast_performance<-function(data){ 
+forecast_performance<-function(data){
   # log score
   logscore_all<-c()
   for (i_ts in 1:length(data)) {
-    logscore_all<-cbind(logscore_all,data[[i_ts]]$logscore) 
+    logscore_all<-cbind(logscore_all,data[[i_ts]]$logscore)
   }
   logscore_all<-data.matrix(rowSums(logscore_all))
-  # mase 
+  # mase
   mase_all<-c()
   for (i_ts in 1:length(data)) {
-    mase_all<-cbind(mase_all,data[[i_ts]]$mase_err) 
+    mase_all<-cbind(mase_all,data[[i_ts]]$mase_err)
   }
   mase_all<-data.matrix(rowMeans(mase_all))
-  # smape 
+  # smape
   smape_all<-c()
   for (i_ts in 1:length(data)) {
-    smape_all<-cbind(smape_all,data[[i_ts]]$smape_err) 
+    smape_all<-cbind(smape_all,data[[i_ts]]$smape_err)
   }
   smape_all<-data.matrix(rowMeans(smape_all))
   performance<-cbind(logscore_all,mase_all,smape_all)
@@ -858,7 +858,7 @@ library(foreach)
 library(doParallel)
 cl <- makeCluster(3)
 registerDoParallel(cl)
-  
+
 clusterEvalQ(cl,{
              library(tsfeatures)
              library(M4metalearning)
@@ -888,56 +888,56 @@ for (i in 1:length(lpd_feature_Q1000)) {
 }
 
 
-SGLD_VS_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar% 
-  SGLD_VS (data = lpd_feature_Q1000[[i_ts]], logLik = log_score, 
-           gradient_logLik = gradient_logscore, prior = prior, stepsize = 0.1, 
-           SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100, 
+SGLD_VS_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar%
+  SGLD_VS (data = lpd_feature_Q1000[[i_ts]], logLik = log_score,
+           gradient_logLik = gradient_logscore, prior = prior, stepsize = 0.1,
+           SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
            minibatchSize = NULL, sig = 10)
 
-beta_pre_Q1000 <- foreach(i_ts = 1:length(SGLD_VS_Q1000)) %dopar% 
+beta_pre_Q1000 <- foreach(i_ts = 1:length(SGLD_VS_Q1000)) %dopar%
   beta_prepare(SGLD_VS_Q1000[[i_ts]])
 
 fore_feat_Q1000 <- foreach(i_ts = 1:length(data_test)) %dopar%
-  forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf, 
-                                 intercept = T, lpd_feature = lpd_feature_Q1000[[i_ts]], 
-                                 beta_pre = beta_pre_Q1000[[i_ts]]) 
+  forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf,
+                                 intercept = T, lpd_feature = lpd_feature_Q1000[[i_ts]],
+                                 beta_pre = beta_pre_Q1000[[i_ts]])
 perform_feat_Q1000 <- forecast_feature_performance(fore_feat_Q1000)
 
 #Compare
-optim_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar% 
+optim_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar%
   optim_beta (lpd_feature_Q1000[[i_ts]], features_y = NULL)
 
-fore_Q1000 <- foreach(i_ts = 1:length(optim_Q1000)) %dopar% 
-  forecast_results_nofea(data = data_test[[i_ts]], 
+fore_Q1000 <- foreach(i_ts = 1:length(optim_Q1000)) %dopar%
+  forecast_results_nofea(data = data_test[[i_ts]],
                          model_conf = model_conf, optimal_beta = optim_Q1000[[i_ts]])
 
 perform_Q1000 <- forecast_performance(fore_Q1000)
 
 stopCluster(cl)
 
-save(data_test, model_conf, lpd_feature_Q1000, SGLD_VS_Q1000, 
-     beta_pre_Q1000, fore_feat_Q1000, perform_feat_Q1000, 
-     optim_Q1000, fore_Q1000, perform_Q1000, file = "E:/time series/²¢ÐÐ´úÂë/test/Q1000.RData")
+save(data_test, model_conf, lpd_feature_Q1000, SGLD_VS_Q1000,
+     beta_pre_Q1000, fore_feat_Q1000, perform_feat_Q1000,
+     optim_Q1000, fore_Q1000, perform_Q1000, file = "E:/time series/å¹¶è¡Œä»£ç /test/Q1000.RData")
 
 #-------------------------------------------------------------------------------------#
 
 par(mfrow = c(4,2))
 for (i in 1:4) {
-  plot(SGLD_VS_Q1000[[1]]$result_all[[i]]$logscore[1,], ylab = "log score", 
+  plot(SGLD_VS_Q1000[[1]]$result_all[[i]]$logscore[1,], ylab = "log score",
        xlab = paste0(i,'th iteration of beta1' ),ylim = c(-18,-15))
   abline(h=-15.21724, col = "2")
-  
-  plot(SGLD_VS_Q1000[[1]]$result_all[[i]]$logscore[2,], ylab = "log score", 
+
+  plot(SGLD_VS_Q1000[[1]]$result_all[[i]]$logscore[2,], ylab = "log score",
        xlab = paste0(i,'th iteration of beta2' ), ylim = c(-18,-15))
   abline(h=-15.21724, col = "2")
 }
 
 par(mfrow = c(4,2))
 for (i in 1:4) {
-  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[1,], ylab = "log score", 
+  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
        xlab = paste0(i,'th iteration of beta1' ))
   abline(h=63.32389, col = "2")
-  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[2,], ylab = "log score", 
+  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
        xlab = paste0(i,'th iteration of beta2' ))
   abline(h=63.32389, col = "2")
 }
@@ -945,10 +945,10 @@ for (i in 1:4) {
 
 par(mfrow = c(4,2))
 for (i in 91:94) {
-  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[1,], ylab = "log score", 
+  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
        xlab = paste0(i,'th iteration of beta1' ))
   abline(h=63.32389, col = "2")
-  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[2,], ylab = "log score", 
+  plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
        xlab = paste0(i,'th iteration of beta2' ))
   abline(h=63.32389, col = "2")
 }
@@ -1015,4 +1015,3 @@ ind <- Q1000_win$method %in% c("ets","naive","rw_drift")
 Q1000_win0 <- Q1000_win[!ind,]
 
 ggplot(Q1000_win0,aes(x=error, y=win_num, fill=method))+geom_bar(stat='identity')
-
