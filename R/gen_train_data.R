@@ -1,4 +1,4 @@
-#²âÊÔ
+#æµ‹è¯•
 #! /usr/bin/env Rscript
 
 ## feature-based-Bayesian-forecasting-model-averaging
@@ -41,21 +41,21 @@ model_conf = list(
 )
 ###----------------------------------------------------------------------------
 
-# ##²¢ÐÐ°¸Àý
+# ##å¹¶è¡Œæ¡ˆä¾‹
 # fun <- function(x){
 #  y<-x+1
 # }
-# # ·Ç²¢ÐÐ¼ÆËã·½Ê½£¬ÀàËÆÓÚsapplyº¯ÊýµÄ¹¦ÄÜ
+# # éžå¹¶è¡Œè®¡ç®—æ–¹å¼ï¼Œç±»ä¼¼äºŽsapplyå‡½æ•°çš„åŠŸèƒ½
 # x <- foreach(x=1:1000,.combine='rbind') %do% fun(x)
-# # ÆôÓÃparallel×÷Îªforeach²¢ÐÐ¼ÆËãµÄºó¶Ë
+# # å¯ç”¨parallelä½œä¸ºforeachå¹¶è¡Œè®¡ç®—çš„åŽç«¯
 # cl <- makeCluster(4)
 # registerDoParallel(cl)
-# # ²¢ÐÐ¼ÆËã·½Ê½
+# # å¹¶è¡Œè®¡ç®—æ–¹å¼
 # x <- foreach(x=1:1000,.combine='rbind') %dopar% fun(x)
 # stopCluster(cl)
 
 
- #attach(model_conf) 
+ #attach(model_conf)
 
 ## Function  lpd_feature
 ## param: a ts data with $x
@@ -70,32 +70,32 @@ lpd_feature <- function(data) {
   library(M4comp2018)
   library(foreach)
   library(doParallel)
-  
+
   frequency = model_conf$frequency
   history_burn = model_conf$history_burn
   ets_model = model_conf$ets_model
   forecast_h = model_conf$forecast_h
   train_h = model_conf$train_h
   PI_level = model_conf$PI_level
-  
+
   ## A single historical data
   y <- data$x
   y01 = scale(y, center = TRUE, scale = TRUE)
   y_mean = attr(y01, "scaled:center")
   y_sd = attr(y01, "scaled:scale")
-  
+
   y01 = as.numeric(y01)
-  
+
   ## Calculate historical log predictive density
   log_pred_densities <-
     matrix(nrow = length(y) - history_burn - train_h + 1,
            ncol = 2)
-  
+
   for (t in (history_burn):(length(y) - train_h))
   {
     ## TODO: We may simplify this to assume the fit and forecast procedure is
     ## invariant with certain time period to save time.
-    
+
     ## ETS model
     ets_fit <- ets(y01[1:t], model = ets_model)
     ets_fore <- forecast(ets_fit, h = train_h, level = PI_level)
@@ -104,14 +104,14 @@ lpd_feature <- function(data) {
     ## predict interval.  Remember that PI = pred_mean -/+ qnorm(PI_level)*pred_sd
     ets_fore_sd = (ets_fore$lower - ets_fore$mean) / qnorm(1 - PI_level /
                                                              100)
-    
+
     ## ARIMA model
     arima_fit <- auto.arima(y01[1:t])
     arima_fore <- forecast(arima_fit, h = train_h, level = PI_level)
     arima_fore_mean <- arima_fore$mean
     arima_fore_sd = (arima_fore$lower - arima_fore$mean) / qnorm(1 - PI_level /
                                                                    100)
-    
+
     ## To keep numeric stability, we calculate log P(y_pred)
     log_pred_densities[(t - history_burn + 1), 1] <-
       sum(dnorm(
@@ -128,12 +128,12 @@ lpd_feature <- function(data) {
         log = TRUE
       ))
   }
-  
+
   ## Calculate historical features
   features_y <-
     matrix(nrow = length(y) - train_h - history_burn + 1,
            ncol = 42)
-  
+
   for (t in (history_burn):(length(y) - train_h))
   {
     myts <- list(list(x = ts(y[1:t], frequency = frequency)))
@@ -142,13 +142,13 @@ lpd_feature <- function(data) {
     features_y[(t - history_burn + 1),] <- myfeatures
   }
   features_y_scaled = scale(features_y, center = TRUE, scale = TRUE)
-  
+
   lpd_feature <-
     list(lpd = log_pred_densities, feat = features_y_scaled)
   return(lpd_feature)
 }
 
- 
+
 cl <- makeCluster(2)
 registerDoParallel(cl)
 lpd_feature_yearly <- foreach(i_ts = 1:length(data)) %dopar% lpd_feature(data[[i_ts]])
@@ -184,7 +184,7 @@ t1=proc.time()
 features_y<-features_window( y, window, history_burn, train_h)
 t2=proc.time()
 t=t2-t1
-print(paste0('Ö´ÐÐÊ±¼ä£º',t[3][[1]],'Ãë'))
+print(paste0('æ‰§è¡Œæ—¶é—´ï¼š',t[3][[1]],'ç§’'))
 
 ## Time series plot of features
 par(mfrow = c(6, 7), mar = c(5, 0, 0, 0))

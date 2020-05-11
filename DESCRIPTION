@@ -3,7 +3,7 @@ Type: Package
 Title: Feature-based Bayesian Forecasting Model Averaging
 Version: 0.1
 Date: 2020-02-25
-Author: Li Li, Feng Li
+Author: Li Li, Feng Li, Yanfei Kang
 Maintainer: Li Li
 Description: This package provides Bayesian Forecasting combination with smoothing optimal weights.
 License: GPL (>=2.0)

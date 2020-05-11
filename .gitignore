@@ -8,3 +8,4 @@
 *.eps
 *.pdf
 **/symbols.rds
+data/**
