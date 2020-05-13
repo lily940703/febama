@@ -1,4 +1,4 @@
-#' Calculate the log predictive score for a time series with pools of models
+#' Calculate the log predictive score for a time series with pools of models.
 #'
 #'
 #' @title log predictive score with features
@@ -9,9 +9,8 @@
 #' @param features_select a vector including the numbers of the features to be taken into
 #'     consideration. IF is `NULL`, no features. At this time, the intercept must be
 #' TRUE.
-#' @return
+#' @return List
 #' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
-#' @note TODO: log_score_grad(beta, features, prob, intercepts)
 #' @author Feng Li
 log_score <- function(beta, features, features_select = ncol(features), prob, intercept = T)
 {

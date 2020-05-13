@@ -2,7 +2,7 @@
 #! /usr/bin/env Rscript
 
 ## feature-based-Bayesian-forecasting-model-averaging
-#setwd("~/code/febama/")
+setwd("~/code/febama/")
 
 library(tsfeatures)
 library(M4metalearning)
@@ -154,7 +154,7 @@ registerDoParallel(cl)
 lpd_feature_yearly <- foreach(i_ts = 1:length(data)) %dopar% lpd_feature(data[[i_ts]])
 stopCluster(cl)
 
-save(lpd_feature_yearly, data, model_conf, file="E:/time series/R code/feature-based-bayesian-model-averaging/data/historical_lpd_feature_yearly.RData")
+save(lpd_feature_yearly, data, model_conf, file="data/historical_lpd_feature_yearly.RData")
 
 
 #--------------------------------------------------------------#
@@ -184,7 +184,7 @@ t1=proc.time()
 features_y<-features_window( y, window, history_burn, train_h)
 t2=proc.time()
 t=t2-t1
-print(paste0('执行时间：',t[3][[1]],'秒'))
+print(paste0('Time elapsed:',t[3][[1]],'s'))
 
 ## Time series plot of features
 par(mfrow = c(6, 7), mar = c(5, 0, 0, 0))
