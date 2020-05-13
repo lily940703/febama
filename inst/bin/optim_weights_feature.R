@@ -1,18 +1,3 @@
-#' Calculate the log predictive score for a time series with pools of models
-#'
-#'
-#' @title log predictive score with features
-#' @param beta p-by-(n-1) matrix
-#' @param features T-by-p feature matrix, usually standardized.
-#' @param prob T-by-n predictive densities, currently n=2.
-#' @param intercept TRUE or FALSE Should intercept be used in feature weights?
-#' @param features_select a vector including the numbers of the features to be taken into consideration
-#' @return
-#' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
-#' @note TODO: log_score_grad(beta, features, prob, intercepts)
-#' @author Feng Li
-#'
-
 #################################################################################
 ## performance of four methods
 ## 1 optimal pool
