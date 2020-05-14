@@ -3,6 +3,7 @@
 #' @param model_conf model conf
 #' @return a list including two matrices of log probability densities and features.
 #' @author Feng Li
+#' @export
 lpd_feature_multi <- function(data, model_conf) {
 
     feature_window = model_conf$feature_window
@@ -109,7 +110,13 @@ features_window <- function(y, window, history_burn, train_h){
 }
 
 
-## Delete the features with NaN
+
+#' Delete the features with NaN and add attributes
+#'
+#' @param lpd_feature
+#' @return final features
+#' @author Feng Li
+#' @export
 feature_clean <- function(lpd_feature){
     for (i in 1:length(lpd_feature)) {
         ind <- which(is.nan(lpd_feature[[i]]$feat), arr.ind = T)[,2]

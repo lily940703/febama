@@ -18,7 +18,10 @@ load("data/M4.rda")
 
 ## set.seed(2020-0503)
 data_test <- M4[sample(c(23001:47000), 1000)]
-## load("lpd_feature_Y500.RData")
+
+# Should recalculate the features and save to path, or load from the saved path.
+lpd_features_loc = list("calculate" = TRUE,
+                        save_path = "data/yearly.Rdata")
 
 model_conf = list(
     frequency = 4
@@ -31,7 +34,7 @@ model_conf = list(
   , feature_window =NULL # The length of moving window when computing features
     ## , fore_model = list("ets_fore", "auto.arima_fore" )
   , features = c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")
-  , fore_model = list("ets_fore",  "naive_fore", "rw_drift_fore")
+  , fore_model = c("ets_fore",  "naive_fore", "rw_drift_fore")
 )
 
 ## -------------------------  Experiment  ----------------------------#
@@ -47,80 +50,90 @@ clusterEvalQ(cl,{
     library(tseries)
     library(purrr)
     library(ggplot2)
-    library(M4comp2018)
+    # library(M4comp2018)
     library(numDeriv)
     library("mvtnorm")
     library("base")
-    library(MASS)})
+    library(MASS)
+})
 
-clusterExport(cl,c("ets_fore", "naive_fore", "rw_drift_fore"))
+clusterExport(cl, model_conf$fore_model)
 
-lpd_feature_Q1000 <- foreach(i_ts = 1:length(data_test)) %dopar%
-    lpd_feature_multi(data_test[[i_ts]], model_conf)
-lpd_feature_Q1000 <- feature_clean(lpd_feature_Q1000)
+if(lpd_features_loc$calculate == TRUE)
+{
+    ## Extract `all 42 features` and given models (model_conf$fore_model)
+    lpd_feature <- foreach(i_ts = 1:length(data_test)) %dopar% lpd_feature_multi(data_test[[i_ts]], model_conf)
+    lpd_feature <- feature_clean(lpd_feature)
+    save(lpd_feature, file = lpd_features$save_path)
+} else
+{
+    load(lpd_features_loc$save_path)
+}
 
-## five features
-for (i in 1:length(lpd_feature_Q1000)) {
-    fe <- lpd_feature_Q1000[[i]]$feat
-    fm <- lpd_feature_Q1000[[i]]$feat_mean
-    fs <- lpd_feature_Q1000[[i]]$feat_sd
-    lpd_feature_Q1000[[i]]$feat<- fe[,colnames(fe) %in% model_conf$features]
-    lpd_feature_Q1000[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
-    lpd_feature_Q1000[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
+## load("lpd_feature_Y500.RData")
+
+## Extract features from `model_conf$features`
+for (i in 1:length(lpd_feature)) {
+    fe <- lpd_feature[[i]]$feat
+    fm <- lpd_feature[[i]]$feat_mean
+    fs <- lpd_feature[[i]]$feat_sd
+    lpd_feature[[i]]$feat<- fe[,colnames(fe) %in% model_conf$features]
+    lpd_feature[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
+    lpd_feature[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
 }
 
 
 ## Algorithm
-SGLD_VS_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar%
-    SGLD_VS (data = lpd_feature_Q1000[[i_ts]], logLik = logscore,
+SGLD_VS <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
+    SGLD_VS (data = lpd_feature[[i_ts]], logLik = logscore,
              gradient_logLik = logscore_grad, prior = prior, stepsize = 0.1,
              SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
              minibatchSize = NULL, sig = 10)
 
-beta_pre_Q1000 <- foreach(i_ts = 1:length(SGLD_VS_Q1000)) %dopar%
-    beta_prepare(SGLD_VS_Q1000[[i_ts]])
+beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
+    beta_prepare(SGLD_VS[[i_ts]])
 
-fore_feat_Q1000 <- foreach(i_ts = 1:length(data_test)) %dopar%
+fore_feat <- foreach(i_ts = 1:length(data_test)) %dopar%
     forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf,
-                                   intercept = T, lpd_feature = lpd_feature_Q1000[[i_ts]],
-                                   beta_pre = beta_pre_Q1000[[i_ts]])
-perform_feat_Q1000 <- forecast_feature_performance(fore_feat_Q1000)
+                                   intercept = T, lpd_feature = lpd_feature[[i_ts]],
+                                   beta_pre = beta_pre[[i_ts]])
+perform_feat <- forecast_feature_performance(fore_feat)
 
 ## Compare
-optim_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar%
-    optim_beta (lpd_feature_Q1000[[i_ts]], features_y = NULL)
+optim <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
+    optim_beta (lpd_feature[[i_ts]], features_y = NULL)
 
-fore_Q1000 <- foreach(i_ts = 1:length(optim_Q1000)) %dopar%
+fore <- foreach(i_ts = 1:length(optim)) %dopar%
     forecast_results_nofea(data = data_test[[i_ts]],
-                           model_conf = model_conf, optimal_beta = optim_Q1000[[i_ts]])
+                           model_conf = model_conf, optimal_beta = optim[[i_ts]])
 
-perform_Q1000 <- forecast_performance(fore_Q1000)
+perform <- forecast_performance(fore)
 
 stopCluster(cl)
 
-save(data_test, model_conf, lpd_feature_Q1000, SGLD_VS_Q1000,
-     beta_pre_Q1000, fore_feat_Q1000, perform_feat_Q1000,
-     optim_Q1000, fore_Q1000, perform_Q1000, file = "test/Q1000.RData")
+save(data_test, model_conf, lpd_feature, SGLD_VS,
+     beta_pre, fore_feat, perform_feat,
+     optim, fore, perform, file = "test/Q1000.RData")
 
 ## Visualization
 
 par(mfrow = c(4,2))
 for (i in 1:4) {
-    plot(SGLD_VS_Q1000[[1]]$result_all[[i]]$logscore[1,], ylab = "log score",
+    plot(SGLD_VS[[1]]$result_all[[i]]$logscore[1,], ylab = "log score",
          xlab = paste0(i,'th iteration of beta1' ),ylim = c(-18,-15))
     abline(h=-15.21724, col = "2")
 
-    plot(SGLD_VS_Q1000[[1]]$result_all[[i]]$logscore[2,], ylab = "log score",
+    plot(SGLD_VS[[1]]$result_all[[i]]$logscore[2,], ylab = "log score",
          xlab = paste0(i,'th iteration of beta2' ), ylim = c(-18,-15))
     abline(h=-15.21724, col = "2")
 }
 
 par(mfrow = c(4,2))
 for (i in 1:4) {
-    plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
+    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
          xlab = paste0(i,'th iteration of beta1' ))
     abline(h=63.32389, col = "2")
-    plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
+    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
          xlab = paste0(i,'th iteration of beta2' ))
     abline(h=63.32389, col = "2")
 }
@@ -128,10 +141,10 @@ for (i in 1:4) {
 
 par(mfrow = c(4,2))
 for (i in 91:94) {
-    plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
+    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
          xlab = paste0(i,'th iteration of beta1' ))
     abline(h=63.32389, col = "2")
-    plot(SGLD_VS_Q1000[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
+    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
          xlab = paste0(i,'th iteration of beta2' ))
     abline(h=63.32389, col = "2")
 }
@@ -146,7 +159,7 @@ hist(ll, main = "Histogram of length in historical data", ylim = c(0,500))
 
 rank_ls <- c()
 for (i in 1:1000) {
-    ls <- c(fore_feat_Q1000[[i]]$err_feature[,"lpds"], fore_Q1000[[i]]$logscore)
+    ls <- c(fore_feat[[i]]$err_feature[,"lpds"], fore[[i]]$logscore)
     names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
                                         # ascending order
     ran <- rank(ls)
@@ -161,7 +174,7 @@ rownames(ls_win)=NULL
 
 rank_mase <- c()
 for (i in 1:1000) {
-    ls <- c(fore_feat_Q1000[[i]]$err_feature[,"mase_err_h"], fore_Q1000[[i]]$mase_err)
+    ls <- c(fore_feat[[i]]$err_feature[,"mase_err_h"], fore[[i]]$mase_err)
     names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
     ran <- rank(ls, ties.method = "random")
     rank_mase <- rbind(rank_mase, ran)
@@ -175,7 +188,7 @@ rownames(mase_win)=NULL
 
 rank_smape <- c()
 for (i in 1:1000) {
-    ls <- c(fore_feat_Q1000[[i]]$err_feature[,"smape_err_h"], fore_Q1000[[i]]$smape_err)
+    ls <- c(fore_feat[[i]]$err_feature[,"smape_err_h"], fore[[i]]$smape_err)
     names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
     ran <- rank(ls, ties.method = "random")
     rank_smape <- rbind(rank_smape, ran)
