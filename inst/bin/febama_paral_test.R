@@ -17,11 +17,11 @@ source("R/febama.R")
 load("data/M4.rda")
 
 ## set.seed(2020-0503)
-data_test <- M4[sample(c(23001:47000), 1000)]
+data_test <- M4[sample(c(23001:47000), 1)]
 
 # Should recalculate the features and save to path, or load from the saved path.
 lpd_features_loc = list("calculate" = TRUE,
-                        save_path = "data/yearly.Rdata")
+                        save_path = "data/lpd_features_yearly.Rdata")
 
 model_conf = list(
     frequency = 4
@@ -64,13 +64,12 @@ if(lpd_features_loc$calculate == TRUE)
     ## Extract `all 42 features` and given models (model_conf$fore_model)
     lpd_feature <- foreach(i_ts = 1:length(data_test)) %dopar% lpd_feature_multi(data_test[[i_ts]], model_conf)
     lpd_feature <- feature_clean(lpd_feature)
-    save(lpd_feature, file = lpd_features$save_path)
+
+    save(lpd_feature, file = lpd_features_loc$save_path)
 } else
 {
     load(lpd_features_loc$save_path)
 }
-
-## load("lpd_feature_Y500.RData")
 
 ## Extract features from `model_conf$features`
 for (i in 1:length(lpd_feature)) {
@@ -81,7 +80,6 @@ for (i in 1:length(lpd_feature)) {
     lpd_feature[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
     lpd_feature[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
 }
-
 
 ## Algorithm
 SGLD_VS <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
