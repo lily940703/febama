@@ -86,7 +86,7 @@ for (i in 1:length(lpd_feature)) {
 ## Algorithm
 SGLD_VS <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
     SGLD_VS (data = lpd_feature[[i_ts]], logLik = logscore,
-             gradient_logLik = logscore_grad, prior = prior, stepsize = 0.1,
+             logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
              SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
              minibatchSize = NULL, sig = 10)
 

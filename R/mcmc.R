@@ -9,7 +9,7 @@ proposal_I <- function(n){
 }
 
 
-SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize = NULL,
+SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NULL,
                      stepsize = NULL, tol = 1e-5, iter = 5000, samplesize = 0.1,sig = 10,
                      features_select, I, intercept = TRUE, gama = 0.55, a = 0.4, b = 10 ){
   beta_all <- start
@@ -57,7 +57,7 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
 
         beta <- (beta + stepsize1 * (gradient_prior(beta_all, I, sig)[,i]/ prior1)
                  + stepsize1 * (1/minibatchSize)
-                 * gradient_logLik(beta = beta_all, features = features1,
+                 * logLik_grad(beta = beta_all, features = features1,
                                    features_select = features_select,
                                    prob= prob1, intercept= intercept)[,i]
                  + mvrnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
@@ -134,7 +134,7 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
   return(list(I = x, beta_start = beta_start, accept = accept))
 }
 
-SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
+SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
                     SGLD_iter = 100, SGLD_iter_noVS = 10, VS_iter = 100,
                     minibatchSize = NULL, sig = 10){
   feature_num <- dim(data$feat)[2]
@@ -157,7 +157,7 @@ SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
       features_select <- which(I[,i]==1)
       beta_start <- beta_start
     }
-    res_SGLD <- SGLD_gib(data = data, logLik = logscore, gradient_logLik = logscore_grad,
+    res_SGLD <- SGLD_gib(data = data, logLik = logscore, logLik_grad = logscore_grad,
                          prior = prior, start = beta_start, I = I[,i],
                          minibatchSize = minibatchSize, stepsize = stepsize,
                          iter = iter, features_select = features_select, sig = sig )

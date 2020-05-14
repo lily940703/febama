@@ -230,7 +230,7 @@ gradient <- function(beta, features, features_select = NULL, prob, intercept){
 
 
 
-SGLD <- function(data, logLik, gradient_logLik, prior, start, minibatchSize = NULL,
+SGLD <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NULL,
                  stepsize = NULL, tol = 1e-5, iter = 5000, samplesize = 0.1,sig = 10,
                  features_select, I, intercept = TRUE, gama = 0.55, a = 0.4, b = 10 ){
   beta <- start
@@ -276,7 +276,7 @@ SGLD <- function(data, logLik, gradient_logLik, prior, start, minibatchSize = NU
     beta <- (beta + stepsize1 * (as.vector(jacobian(func = dmvnorm , x = as.vector(beta), method="Richardson",
                                                     mean=matrix(0, length(beta), 1),sigma = sig*diag(length(beta))))
                                  / prior1)
-             + stepsize1 * (1/minibatchSize) * gradient_logLik(beta = beta, features = features1,
+             + stepsize1 * (1/minibatchSize) * logLik_grad(beta = beta, features = features1,
                                                                features_select = features_select,
                                                                prob= prob1, intercept= intercept)
              + mvrnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
@@ -367,7 +367,7 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
 }
 
 
-SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
+SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
                     SGLD_iter = 100, VS_iter = 100, minibatchSize = NULL, sig = 10){
   feature_num <- dim(data$feat)[2]
   I <- matrix(nrow = feature_num, ncol = VS_iter)
@@ -386,7 +386,7 @@ SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
       features_select <- which(I[,i]==1)
       beta_start <- beta_start
     }
-    res_SGLD <- SGLD(data = data, logLik = logscore, gradient_logLik = gradient,
+    res_SGLD <- SGLD(data = data, logLik = logscore, logLik_grad = gradient,
                      prior = prior, start = beta_start, I = I[,i],
                      minibatchSize = minibatchSize, stepsize = stepsize,
                      iter = SGLD_iter, features_select = features_select, sig = sig )
@@ -635,7 +635,7 @@ lpd_feature1 <- list(lpd_feature1 = lpd_feature1)
 lpd_feature_test <- feature_clean(lpd_feature1)[[1]]
 num_fea <- length(lpd_feature_test$feat_mean)
 set.seed(2020-4-14)
-optim_noVS <- SGLD (lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_noVS <- SGLD (lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                     prior = prior, start = runif(num_fea+1, -10, 10), minibatchSize = 0.1,
                     stepsize = 0.1, iter = 500, sig = 10,
                     features_select = seq(1,num_fea,1), I = rep(1,num_fea), intercept = TRUE )
@@ -648,23 +648,23 @@ beta_pre_noVS <-list()
 beta_pre_noVS[[1]] <- beta_pre
 
 set.seed(2020-4-14)
-optim <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                  prior = prior,  SGLD_iter = 500, VS_iter = 100)
 feature_select <- which(rowMeans(optim$I) > 0.5)
 I <- as.numeric(rowMeans(optim$I) > 0.5)
 beta_pre <- beta_prepare (samples_SGLD_VS = optim, num = 100)
 
 set.seed(2020-4-15)
-optim_1 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_1 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 set.seed(2020-4-16)
-optim_2 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_2 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 set.seed(2020-4-17)
-optim_3 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_3 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 set.seed(2020-4-18)
-optim_4 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_4 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 
 
@@ -764,13 +764,13 @@ autoplot(tail(data_test$x,50)) +
 
 
 
-optim_1 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_1 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                  prior = prior,  SGLD_iter = 500, VS_iter = 100)
-optim_2 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_2 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
-optim_3 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_3 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
-optim_4 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
+optim_4 <- SGLD_VS(lpd_feature_test, logLik = logscore, logLik_grad = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 
 
