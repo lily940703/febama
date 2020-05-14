@@ -161,7 +161,7 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
 
     w_max <- try(optim(
         par = ini,
-        fn = log_score,
+        fn = logscore,
         ## gr = gradient,
         features = features_y,
         prob = prob,
@@ -176,7 +176,7 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
     if (w_max$convergence != 0) {
         w_max <- try(optim(
             par = ini,
-            fn = log_score,
+            fn = logscore,
             ## gr = gradient,
             features = features_y,
             prob = prob,

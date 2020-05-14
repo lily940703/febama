@@ -34,7 +34,7 @@ optim_beta_feature<-function( lpd_feature, features_select,intercept = FALSE){
 
   ## maximizing TODO: change to a better optimization tool.
   w_max <- try(optim(par = rep(0, 43),
-                 fn = log_score,
+                 fn = logscore,
                  gr = gradient,
                  features = features_y,
                  prob = prob0,
@@ -176,7 +176,7 @@ feature_clean <- function(lpd_feature){
 #----------------------------------------------------------#
 ## SGLD + VS
 
-log_score <- function(beta, features, features_select = NULL, prob, intercept){
+logscore <- function(beta, features, features_select = NULL, prob, intercept){
   if(is.null(features_select)){
     features0<-features
   }else{
@@ -246,7 +246,7 @@ SGLD <- function(data, logLik, gradient_logLik, prior, start, minibatchSize = NU
                      features_select = features_select,
                      prob = prob, intercept = intercept)
   logpost0 <- log_posterior (data, beta, I, prior = prior,
-                             logLik = log_score, sig = sig)
+                             logLik = logscore, sig = sig)
   i <- 1
   res <- list(beta = start, logscore = logLik0, logpost = logpost0,
               stepsize = NA, prior = prior0)
@@ -286,7 +286,7 @@ SGLD <- function(data, logLik, gradient_logLik, prior, start, minibatchSize = NU
     logLik1 <- logLik (beta = beta, features = features, features_select = features_select,
                        prob = prob, intercept = intercept)
     logpost1 <- log_posterior (data, beta, I, prior = prior,
-                               logLik = log_score, sig = sig)
+                               logLik = logscore, sig = sig)
 
     res$beta <- rbind(res$beta, t(beta))
     res$logscore <- rbind(res$logscore, logLik1)
@@ -328,7 +328,7 @@ prior <- function(beta, I, sig = 10){
 
 
 log_posterior <- function(data, beta, I, prior = prior,
-                          logLik = log_score, sig = 10){
+                          logLik = logscore, sig = 10){
   pri <- prior(beta, I, sig = sig)
   features_select <- which(I==1)
   prob <- exp(data$lpd)
@@ -353,9 +353,9 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
   beta1[ind] <- beta_start[ind]
   beta1[is.na(beta1)] <-0
   alpha <- min(1, exp(logp(data, beta = beta1, I = xp, prior = prior,
-                           logLik = log_score, sig = sig) -
+                           logLik = logscore, sig = sig) -
                         logp(data, beta = beta_start, I = x, prior = prior,
-                             logLik = log_score, sig = sig)))
+                             logLik = logscore, sig = sig)))
   if (runif(1) < alpha){
     accept <- 1
     x <- xp
@@ -386,7 +386,7 @@ SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
       features_select <- which(I[,i]==1)
       beta_start <- beta_start
     }
-    res_SGLD <- SGLD(data = data, logLik = log_score, gradient_logLik = gradient,
+    res_SGLD <- SGLD(data = data, logLik = logscore, gradient_logLik = gradient,
                      prior = prior, start = beta_start, I = I[,i],
                      minibatchSize = minibatchSize, stepsize = stepsize,
                      iter = SGLD_iter, features_select = features_select, sig = sig )
@@ -635,7 +635,7 @@ lpd_feature1 <- list(lpd_feature1 = lpd_feature1)
 lpd_feature_test <- feature_clean(lpd_feature1)[[1]]
 num_fea <- length(lpd_feature_test$feat_mean)
 set.seed(2020-4-14)
-optim_noVS <- SGLD (lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_noVS <- SGLD (lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                     prior = prior, start = runif(num_fea+1, -10, 10), minibatchSize = 0.1,
                     stepsize = 0.1, iter = 500, sig = 10,
                     features_select = seq(1,num_fea,1), I = rep(1,num_fea), intercept = TRUE )
@@ -648,23 +648,23 @@ beta_pre_noVS <-list()
 beta_pre_noVS[[1]] <- beta_pre
 
 set.seed(2020-4-14)
-optim <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                  prior = prior,  SGLD_iter = 500, VS_iter = 100)
 feature_select <- which(rowMeans(optim$I) > 0.5)
 I <- as.numeric(rowMeans(optim$I) > 0.5)
 beta_pre <- beta_prepare (samples_SGLD_VS = optim, num = 100)
 
 set.seed(2020-4-15)
-optim_1 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_1 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 set.seed(2020-4-16)
-optim_2 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_2 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 set.seed(2020-4-17)
-optim_3 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_3 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 set.seed(2020-4-18)
-optim_4 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_4 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 
 
@@ -764,13 +764,13 @@ autoplot(tail(data_test$x,50)) +
 
 
 
-optim_1 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_1 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                  prior = prior,  SGLD_iter = 500, VS_iter = 100)
-optim_2 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_2 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
-optim_3 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_3 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
-optim_4 <- SGLD_VS(lpd_feature_test, logLik = log_score, gradient_logLik = gradient,
+optim_4 <- SGLD_VS(lpd_feature_test, logLik = logscore, gradient_logLik = gradient,
                    prior = prior,  SGLD_iter = 500, VS_iter = 100)
 
 

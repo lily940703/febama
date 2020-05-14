@@ -34,7 +34,7 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
                        features_select = features_select,
                        prob = prob, intercept = intercept)
     logpost0 <- log_posterior (data, beta_all, I, prior = prior,
-                               logLik = log_score, sig = sig)
+                               logLik = logscore, sig = sig)
     res0 <- list(beta = beta_all[,i], logscore = logLik0, logpost = logpost0,
                  stepsize = NA, prior = prior0)
 
@@ -68,7 +68,7 @@ SGLD_gib <- function(data, logLik, gradient_logLik, prior, start, minibatchSize 
         logLik1 <- logLik (beta = beta_all, features = features, features_select = features_select,
                            prob = prob, intercept = intercept)
         logpost1 <- log_posterior (data, beta_all, I, prior = prior,
-                                   logLik = log_score, sig = sig)
+                                   logLik = logscore, sig = sig)
         res0$beta <- cbind(res0$beta, beta)
         res0$logscore <- c(res0$logscore, logLik1)
         res0$logpost <- c(res0$logpost, logpost1)
@@ -121,9 +121,9 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
   beta1[ind, ] <- beta_start[ind, ]
   beta1[is.na(beta1)] <-0
   alpha <- min(1, exp(logp(data, beta = beta1, I = xp, prior = prior,
-                           logLik = log_score, sig = sig) -
+                           logLik = logscore, sig = sig) -
                         logp(data, beta = beta_start, I = x, prior = prior,
-                             logLik = log_score, sig = sig)))
+                             logLik = logscore, sig = sig)))
   if (runif(1) < alpha){
     accept <- 1
     x <- xp
@@ -157,7 +157,7 @@ SGLD_VS <- function(data, logLik, gradient_logLik, prior, stepsize = NULL,
       features_select <- which(I[,i]==1)
       beta_start <- beta_start
     }
-    res_SGLD <- SGLD_gib(data = data, logLik = log_score, gradient_logLik = gradient_logscore,
+    res_SGLD <- SGLD_gib(data = data, logLik = logscore, gradient_logLik = logscore_grad,
                          prior = prior, start = beta_start, I = I[,i],
                          minibatchSize = minibatchSize, stepsize = stepsize,
                          iter = iter, features_select = features_select, sig = sig )

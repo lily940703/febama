@@ -9,10 +9,10 @@
 #' @param features_select a vector including the numbers of the features to be taken into consideration
 #' @return
 #' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
-#' @note TODO: log_score_grad(beta, features, prob, intercepts)
+#' @note TODO: logscore_grad(beta, features, prob, intercepts)
 #' @author Feng Li
-#' 
-log_score<-function(beta, features, features_select = NULL, prob, intercept){
+#'
+logscore<-function(beta, features, features_select = NULL, prob, intercept){
   if(is.null(features_select)){
     features0<-features
   }else{
@@ -54,21 +54,21 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
     cat("The probability predictive densities have 0 value")
   }
   prob <- prob[rowSums(prob == 0) != 2, ]
-  
+
   ## maximizing TODO: change to a better optimization tool.
   ## library("optimx")
   w_max <- try(optim(
     par = 0,
-    fn = log_score,
+    fn = logscore,
     features = features_y,
     prob = prob,
     ## intercept = intercept,
     intercept = TRUE,
     method = "L-BFGS-B",
     control = list(fnscale = -1)
-  ) 
   )
-  
+  )
+
   if (w_max$convergence != 0) {
     cat("The optimization does not converge in data", i_ts)
   }
@@ -79,7 +79,7 @@ optim_beta <- function(lpd_feature, features_y = NULL) {
 cl <- makeCluster(2)
 registerDoParallel(cl)
 optimal_beta <-
-  foreach(i_ts = 1:length(data)) %dopar% 
+  foreach(i_ts = 1:length(data)) %dopar%
   optim_beta(lpd_feature_yearly[[i_ts]], features_y = NULL)
 stopCluster(cl)
 
@@ -98,7 +98,7 @@ forecast_results<-function(data, forecast_h, optimal_beta){
   y_hat_matrix <- matrix(ncol = forecast_h, nrow = 4)
   rownames(y_hat_matrix)<-c("Optimal pool","SA","ETS","ARIMA")
   lpds_all<- matrix(ncol = 1, nrow = 4)
-  
+
   y <- data$x
   y01 = scale(y, center = TRUE, scale = TRUE)
   y_mean = attr(y01, "scaled:center")
@@ -110,7 +110,7 @@ forecast_results<-function(data, forecast_h, optimal_beta){
   y_new_simple = y01
   y_new_ets = y01
   y_new_arima = y01
-  
+
   lpds = 0
   lpds_simple = 0
   lpds_ets = 0
@@ -147,11 +147,11 @@ forecast_results<-function(data, forecast_h, optimal_beta){
     arima_fore_simple <- forecast(arima_fit_simple, h = 1, level = PI_level)
     arima_fore_mean_simple <- arima_fore_simple$mean
     arima_fore_sd_simple = (arima_fore_simple$lower - arima_fore_simple$mean)/qnorm(1 - PI_level/100)
-    
+
     y_pred_h_simple = mean(c(ets_fore_mean_simple, arima_fore_mean_simple))
     y_new_simple = c(y_new_simple, y_pred_h_simple)
     y_hat_matrix[2,t]<-y_pred_h_simple
-    
+
     ## ETS model (single)
     ets_fit_single <- ets(y_new_ets, model = model_conf$ets_model)
     ets_fore_single <-forecast(ets_fit_single, h = 1, level = PI_level)
@@ -159,7 +159,7 @@ forecast_results<-function(data, forecast_h, optimal_beta){
     ets_fore_sd_single = (ets_fore_single$lower - ets_fore_single$mean)/qnorm(1 - PI_level/100)
     y_new_ets = c(y_new_ets, ets_fore_mean_single)
     y_hat_matrix[3,t]<-ets_fore_mean_single
-    
+
     ## ARIMA model (single)
     arima_fit_single <- auto.arima(y_new_arima)
     arima_fore_single <- forecast(arima_fit_single, h = 1, level = PI_level)
@@ -169,7 +169,7 @@ forecast_results<-function(data, forecast_h, optimal_beta){
     y_hat_matrix[4,t]<-arima_fore_mean_single
 
     ## Update features
-    
+
     features_y = NULL
     intercept = TRUE
     if(!is.null(features_y))
@@ -197,20 +197,20 @@ forecast_results<-function(data, forecast_h, optimal_beta){
     y_pred_h = sum(cbind(ets_fore_mean, arima_fore_mean) * w_full)
     y_new = c(y_new, y_pred_h)
     y_hat_matrix[1,t]<-y_pred_h
-    
+
 ### The predictive log score
-    
+
     pred_densities[t, 1] <- dnorm(y01_true[t], mean = ets_fore_mean, sd = ets_fore_sd)
     pred_densities[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean, sd = arima_fore_sd)
     lpds0 = log(sum(pred_densities[t,] * w_full))
     lpds = lpds + lpds0
-    
+
     # SA
     pred_densities_simple[t, 1] <- dnorm(y01_true[t], mean = ets_fore_mean_simple, sd = ets_fore_sd_simple)
     pred_densities_simple[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean_simple, sd = arima_fore_sd_simple)
     lpds_simple0 = log(mean(pred_densities_simple[t, ]))
     lpds_simple = lpds_simple + lpds_simple0
-    
+
     # Single ets and arima
     pred_densities_single[t, 1] <- dnorm(y01_true[t], mean = ets_fore_mean_single, sd = ets_fore_sd_single)
     pred_densities_single[t, 2] <- dnorm(y01_true[t], mean = arima_fore_mean_single, sd = arima_fore_sd_single)
@@ -218,12 +218,12 @@ forecast_results<-function(data, forecast_h, optimal_beta){
     lpds_ets = lpds_ets + lpds_ets0
     lpds_arima0 = log(pred_densities_single[t, 2])
     lpds_arima = lpds_arima + lpds_arima0
-  }    
+  }
   lpds_all<-rbind(lpds,lpds_simple, lpds_ets, lpds_arima)
   rownames(lpds_all)<-c("Optimal pool","SA","ETS","ARIMA")
   colnames(lpds_all)<-c("log score")
   data$logscore<- lpds_all
-  
+
 ### mase smape
   ff<- y_sd * y_hat_matrix + y_mean
   data$ff<-ff
@@ -241,7 +241,7 @@ forecast_results<-function(data, forecast_h, optimal_beta){
 
 cl <- makeCluster(2)
 registerDoParallel(cl)
-data_forecast <- foreach(i_ts = 1:length(data)) %dopar% 
+data_forecast <- foreach(i_ts = 1:length(data)) %dopar%
                    forecast_results(data[[i_ts]],forecast_h=6, optimal_beta[[i_ts]])
 stopCluster(cl)
 
@@ -252,7 +252,7 @@ save(data_forecast, file="E:/time series/R code/feature-based-bayesian-model-ave
 ## return: a matrix performance
 
 load("E:/time series/R code/feature-based-bayesian-model-averaging/data/data_forecast_yearly.RData")
-forecast_performance<-function(data){ 
+forecast_performance<-function(data){
   # log score
   logscore_all<-c()
   for (i_ts in 1:length(data)) {
@@ -260,20 +260,20 @@ forecast_performance<-function(data){
     if(i_ts %in% c(131,311,550,609,686)){
       logscore_all<-logscore_all
     }else{
-      logscore_all<-cbind(logscore_all,data[[i_ts]]$logscore) 
+      logscore_all<-cbind(logscore_all,data[[i_ts]]$logscore)
     }
   }
   logscore_all<-data.matrix(rowSums(logscore_all))
-  # mase 
+  # mase
   mase_all<-c()
   for (i_ts in 1:length(data)) {
-    mase_all<-cbind(mase_all,data[[i_ts]]$mase_err) 
+    mase_all<-cbind(mase_all,data[[i_ts]]$mase_err)
     }
   mase_all<-data.matrix(rowMeans(mase_all))
-  # smape 
+  # smape
   smape_all<-c()
   for (i_ts in 1:length(data)) {
-    smape_all<-cbind(smape_all,data[[i_ts]]$smape_err) 
+    smape_all<-cbind(smape_all,data[[i_ts]]$smape_err)
   }
   smape_all<-data.matrix(rowMeans(smape_all))
   performance<-cbind(logscore_all,mase_all,smape_all)
@@ -288,4 +288,3 @@ forecast_performance(data_forecast)
 ## SA           -28706.42 3.473032 14.56170
 ## ETS          -37023.01 4.050580 16.05583
 ## ARIMA        -73666.30 3.425456 15.08570
-

@@ -6,7 +6,7 @@ setwd("~/code/febama")
 
 ## Load R functions,
 ## library("febama") # TODO: use a package
-source("R/features")
+source("R/features.R")
 source("R/models.R")
 source("R/mcmc.R")
 source("R/posterior.R")
@@ -30,6 +30,7 @@ model_conf = list(
   , roll = NULL # The length of rolling samples, larger than history_burn
   , feature_window =NULL # The length of moving window when computing features
     ## , fore_model = list("ets_fore", "auto.arima_fore" )
+  , features = c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")
   , fore_model = list("ets_fore",  "naive_fore", "rw_drift_fore")
 )
 
@@ -63,14 +64,16 @@ for (i in 1:length(lpd_feature_Q1000)) {
     fe <- lpd_feature_Q1000[[i]]$feat
     fm <- lpd_feature_Q1000[[i]]$feat_mean
     fs <- lpd_feature_Q1000[[i]]$feat_sd
-    lpd_feature_Q1000[[i]]$feat<- fe[,colnames(fe) %in% c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")]
-    lpd_feature_Q1000[[i]]$feat_mean <- fm[names(fm) %in% c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")]
-    lpd_feature_Q1000[[i]]$feat_sd <- fs[names(fs) %in% c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")]
+    lpd_feature_Q1000[[i]]$feat<- fe[,colnames(fe) %in% model_conf$features]
+    lpd_feature_Q1000[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
+    lpd_feature_Q1000[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
 }
 
+
+## Algorithm
 SGLD_VS_Q1000 <- foreach(i_ts = 1:length(lpd_feature_Q1000)) %dopar%
-    SGLD_VS (data = lpd_feature_Q1000[[i_ts]], logLik = log_score,
-             gradient_logLik = gradient_logscore, prior = prior, stepsize = 0.1,
+    SGLD_VS (data = lpd_feature_Q1000[[i_ts]], logLik = logscore,
+             gradient_logLik = logscore_grad, prior = prior, stepsize = 0.1,
              SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
              minibatchSize = NULL, sig = 10)
 
@@ -97,9 +100,9 @@ stopCluster(cl)
 
 save(data_test, model_conf, lpd_feature_Q1000, SGLD_VS_Q1000,
      beta_pre_Q1000, fore_feat_Q1000, perform_feat_Q1000,
-     optim_Q1000, fore_Q1000, perform_Q1000, file = "E:/time series/并行代码/test/Q1000.RData")
+     optim_Q1000, fore_Q1000, perform_Q1000, file = "test/Q1000.RData")
 
-##-------------------------------------------------------------------------------------#
+## Visualization
 
 par(mfrow = c(4,2))
 for (i in 1:4) {

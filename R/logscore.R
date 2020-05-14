@@ -43,7 +43,7 @@ logscore <- function(beta, features, features_select = ncol(features), prob, int
 #' Gradient of the log score with respect to given models
 #'
 #' The model gradient
-#' @title log_score_grad
+#' @title logscore_grad
 #' @param beta p-by-(n-1) matrix
 #' @param features T-by-p feature matrix, usually standardized.
 #' @param prob T-by-n predictive densities.

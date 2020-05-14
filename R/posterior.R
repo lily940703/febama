@@ -11,7 +11,7 @@ prior <- function(beta, I, sig = 10){
 
 # the gradient of the prior can be computed in this way only when
 # beta1,...,beta(n-1), iid,  ~ N(0,sigma)
-gradient_prior <- function(beta, I, sig){
+prior_grad <- function(beta, I, sig){
   coef = -prior(beta, I, sig)
   sigma_inver = solve(sig*diag(dim(beta)[1]))
   mu = matrix(0, dim(beta)[1], 1)
@@ -32,7 +32,7 @@ gradient_prior <- function(beta, I, sig){
 
 
 log_posterior <- function(data, beta, I, prior = prior,
-                          logLik = log_score, sig = 10){
+                          logLik = logscore, sig = 10){
   pri <- prior(beta, I, sig = sig)
   features_select <- which(I==1)
   prob <- exp(data$lpd)
