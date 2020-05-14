@@ -12,7 +12,7 @@
 #' @return List
 #' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
 #' @author Feng Li
-log_score <- function(beta, features, features_select = ncol(features), prob, intercept = T)
+logscore <- function(beta, features, features_select = ncol(features), prob, intercept = T)
 {
     ## No features if features_select = NULL
     if(is.null(features_select)){
@@ -51,7 +51,7 @@ log_score <- function(beta, features, features_select = ncol(features), prob, in
 #' @param modelcaller which model components should be considered?
 #' @return p-by-length(modelcaller) matrix for the gradient.
 #' @author Feng Li
-log_score_grad <- function(beta, features, features_select = ncol(features), prob,
+logscore_grad <- function(beta, features, features_select = ncol(features), prob,
                            intercept, modelcaller)
 {
   if(is.null(features_select)){
