@@ -35,6 +35,14 @@ model_conf = list(
     ## , fore_model = list("ets_fore", "auto.arima_fore" )
   , features = c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")
   , fore_model = c("ets_fore",  "naive_fore", "rw_drift_fore")
+
+  , varSelArgs = list(cand = "2:end", init = "all-in") #
+  , priArgs = list("beta" = list("intercept" = list(type = "custom",
+                                                    input = list(type = "norm",  mean = 0, variance = 1),
+                                                    output = list(type = "norm", shrinkage = 1)),
+                                 "slopes" = list(type = "cond-mvnorm",
+                                                 mean = 0, covariance = "identity", shrinkage = 1)),
+                   "indicators" = list(type = "beta", alpha = 1, beta = 1))
 )
 
 ## -------------------------  Experiment  ----------------------------#
