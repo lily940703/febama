@@ -17,7 +17,7 @@ source("R/febama.R")
 load("data/M4.rda")
 
 ## set.seed(2020-0503)
-data_test <- M4[sample(c(23001:47000), 1)]
+data_test <- M4[sample(c(23001:47000), 1000)]
 
 # Should recalculate the features and save to path, or load from the saved path.
 lpd_features_loc = list("calculate" = TRUE,
@@ -40,7 +40,7 @@ model_conf = list(
 ## -------------------------  Experiment  ----------------------------#
 library(foreach)
 library(doParallel)
-cl <- makeCluster(3)
+cl <- makeCluster(parallel::detectCores())
 registerDoParallel(cl)
 
 clusterEvalQ(cl,{

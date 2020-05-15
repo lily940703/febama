@@ -60,7 +60,7 @@ SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NU
                  * logLik_grad(beta = beta_all, features = features1,
                                    features_select = features_select,
                                    prob= prob1, intercept= intercept)[,i]
-                 + mvrnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
+                 + rmvnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
         )
         beta_all[,i] <- beta
 
