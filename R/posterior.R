@@ -13,7 +13,7 @@ log_posterior <- function(data, beta, I, prior = prior,
     prob <- exp(data$lpd)
     prob[prob == 0] <- 1e-323
     features <- data$feat
-    LS <- logLik(beta = beta, features = features, features_select = features_select,
+    LS <- logscore(beta = beta, features = features, features_select = features_select,
                  prob = prob, intercept = TRUE)
     log_post <- log(pri) + LS
     return(log_post)
