@@ -4,15 +4,16 @@
 #' @title log predictive score with features
 #' @param beta p-by-(n-1) matrix
 #' @param features T-by-p feature matrix, usually standardized.
-#' @param prob T-by-n predictive densities.
-#' @param intercept TRUE or FALSE Should intercept be used in feature weights?
 #' @param features_select a vector including the numbers of the features to be taken into
 #'     consideration. IF is `NULL`, no features. At this time, the intercept must be
 #' TRUE.
+#' @param prob T-by-n predictive densities.
+#' @param intercept TRUE or FALSE Should intercept be used in feature weights?
+#' @param sum If TRUE, return the sume of log predictive densities.
 #' @return List
 #' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
 #' @author Feng Li
-logscore <- function(beta, features, features_select = ncol(features), prob, intercept = T)
+logscore <- function(beta, features, features_select = ncol(features), prob, intercept = T, sum = TRUE)
 {
     ## No features if features_select = NULL
     if(is.null(features_select)){
@@ -36,7 +37,15 @@ logscore <- function(beta, features, features_select = ncol(features), prob, int
     deno = matrix (rep((1+rowSums(exp_lin)), num_model-1), ncol = num_model-1)
     w <- exp_lin/ deno # T-by-(n-1)
     w_full = cbind(w, 1 - rowSums(w)) # T-by-n, assuming last is deterministic
-    out = sum(log(rowSums(w_full * prob)))
+
+    if(sum == TRUE)
+    {
+        out = sum(log(rowSums(w_full * prob)))
+    }
+    else
+    {
+        out = log(rowSums(w_full * prob))
+    }
     return(out)
 }
 

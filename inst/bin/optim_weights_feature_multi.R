@@ -556,12 +556,12 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
 SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
                     SGLD_iter = 100, SGLD_iter_noVS = 10, VS_iter = 100,
                     minibatchSize = NULL, sig = 10){
-  feature_num <- dim(data$feat)[2]
-  model_num <- dim(data$lpd)[2]
-  I <- matrix(nrow = feature_num, ncol = VS_iter)
+  num_features  <- dim(data$feat)[2]
+  num_models<- dim(data$lpd)[2]
+  I <- matrix(nrow = num_features , ncol = VS_iter)
   B <- list()
   result_all <- list()
-  I[,1] <- rbinom(feature_num,1,0.5)
+  I[,1] <- rbinom(num_features ,1,0.5)
   accept_num <- 1
   iter <- SGLD_iter
   for (i in 1:VS_iter) {

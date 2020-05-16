@@ -17,10 +17,10 @@ source("R/febama.R")
 load("data/M4.rda")
 
 ## set.seed(2020-0503)
-data_test <- M4[sample(c(23001:47000), 1000)]
+data_test <- M4[sample(c(23001:47000), 10)]
 
 # Should recalculate the features and save to path, or load from the saved path.
-lpd_features_loc = list("calculate" = TRUE,
+lpd_features_loc = list("calculate" = FALSE,
                         save_path = "data/lpd_features_yearly.Rdata")
 
 model_conf = list(
@@ -36,7 +36,18 @@ model_conf = list(
   , features = c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")
   , fore_model = c("ets_fore",  "naive_fore", "rw_drift_fore")
 
-  , varSelArgs = list(cand = "2:end", init = "all-in") #
+  , algArgs = list(initOptim = TRUE, # Use LBFGS to optimize initial values
+                   algName = "sgld", # could be NA, results are only based on optimization.
+                   "sgld" = list(stepsize = NULL,
+                                 tol = 1e-5,
+                                 iter = 5000,
+                                 samplesize = 0.1,
+                                 sig = 10,
+                                 gama = 0.55,
+                                 a = 0.4,
+                                 b = 10)
+                   )
+  , varSelArgs = list(cand = "2:end", init = "all-in") # Variable selection settings.
   , priArgs = list("beta" = list("intercept" = list(type = "custom",
                                                     input = list(type = "norm",  mean = 0, variance = 1),
                                                     output = list(type = "norm", shrinkage = 1)),
@@ -52,17 +63,17 @@ cl <- makeCluster(parallel::detectCores())
 registerDoParallel(cl)
 
 clusterEvalQ(cl,{
-    library(tsfeatures)
-    library(M4metalearning)
-    library(forecast)
-    library(tseries)
-    library(purrr)
-    library(ggplot2)
+    library("tsfeatures")
+    library("M4metalearning")
+    library("forecast")
+    library("tseries")
+    library("purrr")
+    library("ggplot2")
     # library(M4comp2018)
-    library(numDeriv)
+    library("numDeriv")
     library("mvtnorm")
     library("base")
-    library(MASS)
+    library("MASS")
 })
 
 clusterExport(cl, model_conf$fore_model)
@@ -70,28 +81,34 @@ clusterExport(cl, model_conf$fore_model)
 if(lpd_features_loc$calculate == TRUE)
 {
     ## Extract `all 42 features` and given models (model_conf$fore_model)
-    lpd_feature <- foreach(i_ts = 1:length(data_test)) %dopar% lpd_feature_multi(data_test[[i_ts]], model_conf)
-    lpd_feature <- feature_clean(lpd_feature)
+    lpd_features0 <- foreach(i_ts = 1:length(data_test)) %dopar% lpd_feature_multi(data_test[[i_ts]], model_conf)
+    lpd_features <- feature_clean(lpd_features0)
 
-    save(lpd_feature, file = lpd_features_loc$save_path)
+    save(lpd_features, file = lpd_features_loc$save_path)
 } else
 {
     load(lpd_features_loc$save_path)
 }
 
-## Extract features from `model_conf$features`
+## Extract lpd and features from `model_conf$features`
 for (i in 1:length(lpd_feature)) {
-    fe <- lpd_feature[[i]]$feat
-    fm <- lpd_feature[[i]]$feat_mean
-    fs <- lpd_feature[[i]]$feat_sd
-    lpd_feature[[i]]$feat<- fe[,colnames(fe) %in% model_conf$features]
-    lpd_feature[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
-    lpd_feature[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
+    fe <- lpd_features[[i]]$feat
+    fm <- lpd_features[[i]]$feat_mean
+    fs <- lpd_features[[i]]$feat_sd
+    lpd_features[[i]]$feat<- fe[,colnames(fe) %in% model_conf$features]
+    lpd_features[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
+    lpd_features[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
 }
 
 ## Algorithm
+i_ts = 1
+SGLD_VS (data = lpd_features[[1]], logLik = logscore,
+         logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
+         SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
+         minibatchSize = NULL, sig = 10)
+
 SGLD_VS <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
-    SGLD_VS (data = lpd_feature[[i_ts]], logLik = logscore,
+    SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
              logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
              SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
              minibatchSize = NULL, sig = 10)
@@ -101,13 +118,13 @@ beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
 
 fore_feat <- foreach(i_ts = 1:length(data_test)) %dopar%
     forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf,
-                                   intercept = T, lpd_feature = lpd_feature[[i_ts]],
+                                   intercept = T, lpd_feature = lpd_features[[i_ts]],
                                    beta_pre = beta_pre[[i_ts]])
 perform_feat <- forecast_feature_performance(fore_feat)
 
 ## Compare
 optim <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
-    optim_beta (lpd_feature[[i_ts]], features_y = NULL)
+    optim_beta (lpd_features[[i_ts]], features_y = NULL)
 
 fore <- foreach(i_ts = 1:length(optim)) %dopar%
     forecast_results_nofea(data = data_test[[i_ts]],

@@ -14,8 +14,8 @@
 #' @return "list" synced
 #' @references "list"
 #' @export
-log_prior <- function(beta,  Mdl.beta, Mdl.betaIdx, Mdl.varSelArgs, Mdl.priArgs,
-                      parUpdate, Mdl.logPri)
+log_priors <- function(beta,  Mdl.beta, Mdl.betaIdx, varSelArgs, priArgs,
+                       parUpdate)
 {
     ## Loop over all updated parameter candidates
 ###----------------------------------------------------------------------------
@@ -241,8 +241,8 @@ log_prior <- function(beta,  Mdl.beta, Mdl.betaIdx, Mdl.varSelArgs, Mdl.priArgs,
 #' @return "list". The gradient and Hessian matrix
 #' @references NA
 #' @export
-logPriorsGradHess <- function(Mdl.X, Mdl.beta, Mdl.betaIdx,Mdl.parLink,
-                              Mdl.varSelArgs, Mdl.priArgs, chainCaller)
+log_priors_grad <- function(Mdl.X, Mdl.beta, Mdl.betaIdx,Mdl.parLink,
+                            Mdl.varSelArgs, Mdl.priArgs, chainCaller)
 {
     ## Only update priors for parameters that need to update.
     ## Initial the storage structure for current log prior
