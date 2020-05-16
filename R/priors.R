@@ -125,7 +125,6 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
                 Idx0Len <- length(Idx0)
                 Idx1Len <- length(Idx1)
 
-                betaLen <- length(betaIdxNoInt)
                 ## The mean vector (recycled if necessary)
                 meanVec <- matrix(mean, 1, betaLen)
 
