@@ -29,14 +29,30 @@ SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NU
         minibatchSize = 0.1
     }
 
+    ## Optimize to have good initial values
+    w_max <- try(optim(
+        par = ini,
+        fn = log_posterior,
+        features = features_y,
+        prob = prob,
+        ## intercept = intercept,
+        intercept = TRUE,
+        method = "L-BFGS-B",
+        ## method = "BFGS",
+        control = list(fnscale = -1)
+    ))
+
+
+
     res <- list()
     for (i in 1:(num_models-1)) {
-        prior0 <- prior(beta_all, I, sig = sig)
+        prior0 <- log_priors(beta_all, I, sig = sig)
+
+
         logLik0 <- logscore (beta = beta_all, features = features,
                            features_select = features_select,
                            prob = prob, intercept = intercept,
                            sum = TRUE)
-
 
         logpost0 <- log_posterior (data, beta_all, I, prior = prior,
                                    logLik = logscore, sig = sig)
@@ -184,6 +200,60 @@ SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
     }
     return(list(I = I, B = B, result_all = result_all, acceptance = accept_num/VS_iter))
 }
+
+
+
+#' Simple algorithm to optimize model parameters.
+#'
+#' This can be used as initial values in MCMC or just for simple optimizations
+#' @title
+#' @param lpd_features
+#' @param features_y
+#' @return
+#' @author Feng Li
+optim_beta <- function(lpd_features, features_y = NULL) {
+    y_lpd <- lpd_features$lpd
+
+    prob <- exp(y_lpd)
+    prob[prob == 0] <- 1e-323
+
+    num_models <- length(lpd_features$lpd[1,])
+
+    ini <-  t(data.matrix(rep(0, num_models-1)))
+
+    w_max <- try(optim(
+        par = ini,
+        fn = logscore,
+        ## gr = gradient,
+        features = features_y,
+        prob = prob,
+        ## intercept = intercept,
+        intercept = TRUE,
+        method = "L-BFGS-B",
+        ## method = "BFGS",
+        control = list(fnscale = -1)
+    )
+    )
+
+    if (w_max$convergence != 0) {
+        w_max <- try(optim(
+            par = ini,
+            fn = logscore,
+            ## gr = gradient,
+            features = features_y,
+            prob = prob,
+            ## intercept = intercept,
+            intercept = TRUE,
+            ## method = "L-BFGS-B",
+            method = "BFGS",
+            control = list(fnscale = -1)
+        )
+        )
+    }
+    beta_optim <- w_max$par
+    return(list(beta_optim = beta_optim, logscore = w_max$value))
+}
+
 
 beta_prepare <- function(res_SGLD_VS){
     beta_pre0 <-list()

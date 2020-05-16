@@ -1,5 +1,5 @@
 forecast_feature_results_multi <-function(data, model_conf, intercept = T,
-                                          lpd_feature, beta_pre)
+                                          lpd_features, beta_pre)
 {
     ##attach(model_conf)
     feature_window = model_conf$feature_window
@@ -26,9 +26,9 @@ forecast_feature_results_multi <-function(data, model_conf, intercept = T,
     y_new = y01
     y_new_nonsd = as.numeric(y)
 
-    features_y = lpd_feature$feat
-    features_y_mean = lpd_feature$feat_mean
-    features_y_sd = lpd_feature$feat_sd
+    features_y = lpd_features$feat
+    features_y_mean = lpd_features$feat_mean
+    features_y_sd = lpd_features$feat_sd
 
     lpds = 0
     pred_densities = matrix(NA, forecast_h, length(fore_model))
@@ -148,46 +148,4 @@ forecast_feature_performance<-function(data)
     performance_out<-cbind(performance_out1,t(performance_out2))
     colnames(performance_out)<-c("Log score","Mase","Smape")
     return(performance_out)
-}
-
-
-##--------------------------------------------------------------------------------------#
-optim_beta <- function(lpd_feature, features_y = NULL) {
-    y_lpd <- lpd_feature$lpd
-    prob <- exp(y_lpd)
-    prob[prob == 0] <- 1e-323
-    num_model <- length(lpd_feature$lpd[1,])
-    ini <-  t(data.matrix(rep(0, num_model-1)))
-
-    w_max <- try(optim(
-        par = ini,
-        fn = logscore,
-        ## gr = gradient,
-        features = features_y,
-        prob = prob,
-        ## intercept = intercept,
-        intercept = TRUE,
-        method = "L-BFGS-B",
-        ## method = "BFGS",
-        control = list(fnscale = -1)
-    )
-    )
-
-    if (w_max$convergence != 0) {
-        w_max <- try(optim(
-            par = ini,
-            fn = logscore,
-            ## gr = gradient,
-            features = features_y,
-            prob = prob,
-            ## intercept = intercept,
-            intercept = TRUE,
-            ## method = "L-BFGS-B",
-            method = "BFGS",
-            control = list(fnscale = -1)
-        )
-        )
-    }
-    beta_optim <- w_max$par
-    return(list(beta_optim = beta_optim, logscore = w_max$value))
 }

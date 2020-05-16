@@ -23,6 +23,9 @@ data_test <- M4[sample(c(23001:47000), 10)]
 lpd_features_loc = list("calculate" = FALSE,
                         save_path = "data/lpd_features_yearly.Rdata")
 
+
+
+num_models = 3
 model_conf = list(
     frequency = 4
   , ets_model = "ANN" # simple exponential smoothing with additive errors
@@ -32,10 +35,22 @@ model_conf = list(
   , PI_level = 90 # Predictive Interval level, used to extract out-of-sample variance from forecasting models.
   , roll = NULL # The length of rolling samples, larger than history_burn
   , feature_window =NULL # The length of moving window when computing features
-    ## , fore_model = list("ets_fore", "auto.arima_fore" )
-  , features = c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")
+  , features = rep(list(c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")), num_models - 1)
   , fore_model = c("ets_fore",  "naive_fore", "rw_drift_fore")
 
+    ## Variable selection settings. By default, every model shares the same
+    ## settings. Otherwise, write the full list, same applies to priArgs, this would allow
+    ## for some models with only intercept.  Variable selection candidates, NULL: no
+    ## variable selection use full covariates. ("all-in", "all-out", "random", or
+    ## user-input)
+  , varSelArgs = rep(list(list(cand = "2:end", init = "all-in")), num_models - 1)
+
+  , priArgs = rep(list(list("beta" = list("intercept" = list(type = "custom",
+                                                        input = list(type = "norm",  mean = 0, variance = 1),
+                                                        output = list(type = "norm", shrinkage = 1)),
+                                     "slopes" = list(type = "cond-mvnorm",
+                                                     mean = 0, covariance = "identity", shrinkage = 1)),
+                       "indicators" = list(type = "beta", alpha = 1, beta = 1)), num_models - 1)
   , algArgs = list(initOptim = TRUE, # Use LBFGS to optimize initial values
                    algName = "sgld", # could be NA, results are only based on optimization.
                    "sgld" = list(stepsize = NULL,
@@ -47,13 +62,7 @@ model_conf = list(
                                  a = 0.4,
                                  b = 10)
                    )
-  , varSelArgs = list(cand = "2:end", init = "all-in") # Variable selection settings.
-  , priArgs = list("beta" = list("intercept" = list(type = "custom",
-                                                    input = list(type = "norm",  mean = 0, variance = 1),
-                                                    output = list(type = "norm", shrinkage = 1)),
-                                 "slopes" = list(type = "cond-mvnorm",
-                                                 mean = 0, covariance = "identity", shrinkage = 1)),
-                   "indicators" = list(type = "beta", alpha = 1, beta = 1))
+
 )
 
 ## -------------------------  Experiment  ----------------------------#
