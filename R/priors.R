@@ -4,9 +4,9 @@
 #' @title Model prior settings.
 #' @param beta list for models to be updated
 #' @param betaIdx same as beta
-#' @param varSelArgs
-#' @param priArgs
-#' @param parUpdate "list"
+#' @param varSelArgs list, same as beta length
+#' @param priArgs list, same as beta length
+#' @param sum logical, if TRUE, sum all conditional priors
 #' @return "list" synced
 #' @references "list"
 #' @export
@@ -180,11 +180,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 
     if(sum)
     {
-        out = sum(unlist(logPri))
-    }
-    else
-    {
-        out = logPri
+        out = sum(unlist(out))
     }
 
     return(out)
@@ -194,188 +190,131 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 #' Gradient for the model
 #'
 #' Gradient for priors
-#' @param X NA
-#' @param beta NA
-#' @param betaIdx NA
-#' @param parLink NA
-#' @param varSelArgs NA
-#' @param priArgs NA
-#' @param chainCaller NA
+#' @param beta list for models to be updated
+#' @param betaIdx same as beta
+#' @param varSelArgs list, same as beta length
+#' @param priArgs list, same as beta length
+#' @param chainCaller
+#' @param sum logical, if TRUE, sum all conditional priors
 #' @return "list". The gradient and Hessian matrix
 #' @references NA
 #' @export
-log_priors_grad <- function(X, beta, betaIdx,parLink,
-                            varSelArgs, priArgs, chainCaller)
+log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
 {
-    ## Only update priors for parameters that need to update.
-    ## Initial the storage structure for current log prior
-    CompCaller <- chainCaller[[1]]
-    model_i <- chainCaller[[2]]
+    ## Only update priors for parameters that need to update.  Initial the storage
+    ## structure for current log prior
+    num_models_updated = length(beta)
 
     ## Reserve list structure of the gradient and Hessian
-    gradObsLst <- list()
-    HessObsLst <- list()
+    out = beta # retain same out structure as priArgs.
 
-###----------------------------------------------------------------------------
-### Gradient and Hessian for the intercept as a special case
-###----------------------------------------------------------------------------
-    priArgs <- priArgs[[model_i]][["beta"]][["intercept"]]
-    beta <- beta[[model_i]][1, , drop = FALSE] # the intercepts
-    link <- parLink[[model_i]]
+    ## Gradient for the intercept as a special case because its prior is different
+    priArgsCur <- priArgsCur[[model_i]][["beta"]][["intercept"]]
+    betaCur <- beta[[model_i]][1] # the intercepts
 
     if(tolower(priArgs[["type"]]) == "custom")
     {
         ## Call the any2any() function
         densOutput <- any2any(densArgs = priArgs)
 
-        mean <- densOutput$mean
-        ## print(densOutput$variance)
-        variance <- diag(densOutput$variance, length(beta))
-        shrinkage <- priArgs[["output"]][["shrinkage"]]
-
-        ## Gradient and Hessian for the intercept
-        GradHessInt <- DensGradHess(B = matrix(beta),
-                                    mean = mean,
-                                    covariance = variance*shrinkage,
-                                    grad = TRUE, Hess = FALSE)
+        mean <- priArgsCur[["intercept"]][["mean"]] # mean of density
+        covariance <- priArgsCur[["intercept"]][["covariance"]] # Covariates
+        shrinkage <- priArgsCur[["intercept"]][["shrinkage"]] # Shrinkage
 
         ## The output
-        gradObsLst[["Int"]] <- t(GradHessInt[["grad"]]) # row-vector
-                                        # HessObsLst[["Int"]] <- GradHessInt[["Hess"]]
+        out[[model_i]][1] <- -1/(covariance * shrinkage) * (betaCur-mean)
     }
-###----------------------------------------------------------------------------
-### Gradient for beta|I and Hessian for beta (unconditional)
-###----------------------------------------------------------------------------
 
+    ## Gradient for beta|I for beta (unconditional)
     priArgs <- priArgs[[model_i]][["beta"]][["slopes"]]
-    nPar <- parLink[[model_i]][["nPar"]]
 
     ## Slopes and variable selection indicators(taking away intercept)
-    beta <- beta[[model_i]][-1, , drop = FALSE]
-    betaIdxNoInt <- betaIdx[[model_i]][-1, , drop = FALSE]
+    betaCur <- beta[[model_i]][-1]
+    betaIdxNoInt <- betaIdx[[model_i]][-1]
 
-    X <- X[[model_i]][, -1, drop = FALSE]
-    if(length(X) == 0L)
+    for(model_i in 1:num_models)
     {
-        ## No covariates at all (only intercept in the model)
-        gradObsLst[["Slop"]] <- NULL
-        HessObsLst[["SlopFull"]] <- NULL
-    }
-    else
-    {
-        if(tolower(priArgs[["type"]]) == "cond-mvnorm")
+        if(length(betaCur) > 0L)
         {
-            ## Normal distribution condition normal The full beta vector is assumed
-            ## as normal. Since variable selection is included in the MCMC, The
-            ## final proposed beta are those non zeros. We need to using the
-            ## gradient for the conditional normal density See Mardia p. 63.
-
-            ## Subtract the prior information for the full beta
-            mean <- priArgs[["mean"]] # mean of density
-            covariance <- priArgs[["covariance"]] # Covariates
-            shrinkage <- priArgs[["shrinkage"]] # Shrinkage
-
-            ## Split the beta vector by zero and nonzero.
-            Idx1 <- which(betaIdxNoInt == TRUE)
-            Idx0 <- which(betaIdxNoInt == FALSE)
-            Idx0Len <- length(Idx0)
-            Idx1Len <- length(Idx1)
-            betaLen <- length(betaIdxNoInt)
-
-            SlopCondGrad <- array(NA, dim(betaIdxNoInt))
-
-            ## The mean vector for the whole beta vector (recycled if necessary)
-            meanVec <- array(mean, dim(betaIdxNoInt))
-
-            ## The covariance matrix for the whole beta vector
-            if(tolower(covariance) == "g-prior")
+            if(tolower(priArgs[["type"]]) == "cond-mvnorm")
             {
-                coVar0 <- qr.solve(crossprod(X))
-                coVar0Lst <- lapply(
-                    as.vector(rep(NA, nPar),"list"),
-                    function(x) coVar0)
-                coVar <- block.diag(coVar0Lst)
+                ## Normal distribution condition normal The full beta vector is assumed as
+                ## normal. Since variable selection is included in the MCMC, The final
+                ## proposed beta are those non zeros. We need to using the gradient for the
+                ## conditional normal density See Mardia p. 63.
+
+                ## Subtract the prior information for the full beta
+                mean <- priArgsCur[["mean"]] # mean of density
+                covariance <- priArgsCur[["covariance"]] # Covariates
+                shrinkage <- priArgsCur[["shrinkage"]] # Shrinkage
+
+                ## Split the beta vector by zero and nonzero.
+                Idx1 <- which(betaIdxNoInt == TRUE)
+                Idx0 <- which(betaIdxNoInt == FALSE)
+                Idx0Len <- length(Idx0)
+                Idx1Len <- length(Idx1)
+                betaLen <- length(betaIdxNoInt)
+
+                SlopCondGrad <- array(NA, dim(betaIdxNoInt))
+
+                ## The mean vector for the whole beta vector (recycled if necessary)
+                meanVec <- array(mean, dim(betaIdxNoInt))
+
+                ## The covariance matrix for the whole beta vector
+                if(tolower(covariance) == "g-prior")
+                {
+                    coVar0 <- qr.solve(crossprod(X))
+                    coVar0Lst <- lapply(
+                        as.vector(rep(NA, nPar),"list"),
+                        function(x) coVar0)
+                    coVar <- block.diag(coVar0Lst)
+                }
+                else if(tolower(covariance) == "identity")
+                {
+                    coVar <- diag(betaLen)
+                }
+
+                ## The conditional gradient. Consider three situations for
+                ## gradient.
+                if(Idx0Len == 0)
+                {
+                    ## 1. all are selected. Switch to unconditional prior.
+                    SlopCondGrad[Idx1] <- DensGradHess(
+                        B = matrix(beta),
+                        mean = matrix(meanVec),
+                        covariance = coVar*shrinkage,
+                        grad = TRUE, Hess = FALSE)[["grad"]]
+                }
+
+                else if(Idx0Len > 0 && Idx0Len < betaLen)
+                {
+                    ## 2. some are selected (the most common situation)
+                    ## The conditional prior
+                    A <- coVar[Idx1, Idx0, drop = FALSE]%*%
+                        solve(coVar[Idx0, Idx0, drop = FALSE])
+
+                    condMean <- meanVec[Idx1] - A%*%meanVec[Idx0]
+
+                    condCovar <- coVar[Idx1, Idx1, drop = FALSE] -
+                        A%*%coVar[Idx0, Idx1, drop = FALSE]
+
+                    ## The conditional gradient
+                    SlopCondGrad[Idx1] <- DensGradHess(
+                        B = matrix(beta[Idx1]),
+                        mean = condMean,
+                        covariance = condCovar*shrinkage,
+                        grad = TRUE, Hess = FALSE)[["grad"]]
+                }
+                else
+                {
+                    ## 3. non are selected, do nothing Switch to unconditional prior.
+                }
+
+                out[[model_i]][2:nPar] <- SlopCondGrad
             }
-            else if(tolower(covariance) == "identity")
-            {
-                coVar <- diag(betaLen)
-            }
-
-            ## The conditional gradient. Consider three situations for
-            ## gradient.
-            if(Idx0Len == 0)
-            {
-                ## 1. all are selected. Switch to unconditional prior.
-                SlopCondGrad[Idx1] <- DensGradHess(
-                    B = matrix(beta),
-                    mean = matrix(meanVec),
-                    covariance = coVar*shrinkage,
-                    grad = TRUE, Hess = FALSE)[["grad"]]
-            }
-
-            else if(Idx0Len > 0 && Idx0Len < betaLen)
-            {
-                ## 2. some are selected (the most common situation)
-                ## The conditional prior
-                A <- coVar[Idx1, Idx0, drop = FALSE]%*%
-                    solve(coVar[Idx0, Idx0, drop = FALSE])
-
-                condMean <- meanVec[Idx1] - A%*%meanVec[Idx0]
-
-                condCovar <- coVar[Idx1, Idx1, drop = FALSE] -
-                    A%*%coVar[Idx0, Idx1, drop = FALSE]
-
-                ## The conditional gradient
-                SlopCondGrad[Idx1] <- DensGradHess(
-                    B = matrix(beta[Idx1]),
-                    mean = condMean,
-                    covariance = condCovar*shrinkage,
-                    grad = TRUE, Hess = FALSE)[["grad"]]
-            }
-            else
-            {
-                ## 3. non are selected, do nothing
-                ##  Switch to unconditional prior.
-                ## browser()
-                ## SlopCondGrad[Idx1] <- DensGradHess(
-                ##     B = beta,
-                ##     mean = meanVec,
-                ##     covariance = coVar*shrinkage,
-                ##     grad = TRUE, Hess = FALSE)[["grad"]]
-                ## SlopCondGrad[Idx1] <- NA
-            }
-
-            gradObsLst[["Slop"]] <- SlopCondGrad
-
-            ## The unconditional full Hessian matrix
-            ## HessObsLst[["SlopFull"]] <- DensGradHess(
-            ##     B = matrix(beta),
-            ##     mean = matrix(meanVec),
-            ##     covariance = coVar*shrinkage,
-            ##     grad = FALSE, Hess = TRUE)[["Hess"]]
         }
     }
-###----------------------------------------------------------------------------
-### The output
-###----------------------------------------------------------------------------
-    ## The final gradient output.
-    ## The intercept and the conditional gradient; The unconditional Hessian
 
-    gradObs <- rbind(gradObsLst[["Int"]], gradObsLst[["Slop"]])
-
-    ## TESTING code to reorganize the hesssian matrix, failed.
-    HessObs <- NA
-    ## HessObs <- block.diag(HessObsLst)
-
-    ## IdxMat <- matrix(1:15, 5, 3)
-
-    ## IdxSlop <- IdxMat[-1, , drop = FALSE]
-    ## IdxInt <- IdxMat[1, ]
-    ## HessTest <- matrix(0, 15, 15)
-
-    ## HessTest[IdxSlop, IdxSlop] <- HessObsLst[["SlopFull"]]
-    ## HessTest[IdxInt, IdxInt] <- HessObsLst[["Int"]]
-
-    out <- list(gradObs = gradObs, HessObs = HessObs)
+    ## The final gradient output.  The intercept and the conditional gradient
     return(out)
 }

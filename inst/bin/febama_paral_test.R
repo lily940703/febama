@@ -50,7 +50,7 @@ model_conf = list(
                                                         output = list(type = "norm", shrinkage = 1)),
                                      "slopes" = list(type = "cond-mvnorm",
                                                      mean = 0, covariance = "identity", shrinkage = 1)),
-                       "indicators" = list(type = "beta", alpha = 1, beta = 1)), num_models - 1)
+                       "indicators" = list(type = "beta", alpha = 1, beta = 1))), num_models - 1)
   , algArgs = list(initOptim = TRUE, # Use LBFGS to optimize initial values
                    algName = "sgld", # could be NA, results are only based on optimization.
                    "sgld" = list(stepsize = NULL,

@@ -30,24 +30,24 @@ SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NU
     }
 
     ## Optimize to have good initial values
-    w_max <- try(optim(
-        par = ini,
-        fn = log_posterior,
-        features = features_y,
-        prob = prob,
-        ## intercept = intercept,
-        intercept = TRUE,
-        method = "L-BFGS-B",
-        ## method = "BFGS",
-        control = list(fnscale = -1)
-    ))
+    ## w_max <- try(optim(
+    ##     par = ini,
+    ##     fn = log_posterior,
+    ##     features = features_y,
+    ##     prob = prob,
+    ##     ## intercept = intercept,
+    ##     intercept = TRUE,
+    ##     method = "L-BFGS-B",
+    ##     ## method = "BFGS",
+    ##     control = list(fnscale = -1)
+    ## ))
 
 
 
     res <- list()
     for (i in 1:(num_models-1)) {
-        prior0 <- log_priors(beta_all, I, sig = sig)
 
+        prior0 <- log_priors(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 
         logLik0 <- logscore (beta = beta_all, features = features,
                            features_select = features_select,
