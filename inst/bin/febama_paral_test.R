@@ -46,11 +46,11 @@ model_conf = list(
   , varSelArgs = rep(list(list(cand = "2:end", init = "all-in")), num_models - 1)
 
   , priArgs = rep(list(list("beta" = list("intercept" = list(type = "custom",
-                                                        input = list(type = "norm",  mean = 0, variance = 1),
-                                                        output = list(type = "norm", shrinkage = 1)),
-                                     "slopes" = list(type = "cond-mvnorm",
-                                                     mean = 0, covariance = "identity", shrinkage = 1)),
-                       "indicators" = list(type = "beta", alpha = 1, beta = 1))), num_models - 1)
+                                                             input = list(type = "norm",  mean = 0, variance = 1),
+                                                             output = list(type = "norm", shrinkage = 1)),
+                                          "slopes" = list(type = "cond-mvnorm",
+                                                          mean = 0, covariance = "identity", shrinkage = 1)),
+                            "indicators" = list(type = "beta", alpha = 1, beta = 1))), num_models - 1)
   , algArgs = list(initOptim = TRUE, # Use LBFGS to optimize initial values
                    algName = "sgld", # could be NA, results are only based on optimization.
                    "sgld" = list(stepsize = NULL,
@@ -90,13 +90,19 @@ clusterExport(cl, model_conf$fore_model)
 if(lpd_features_loc$calculate == TRUE)
 {
     ## Extract `all 42 features` and given models (model_conf$fore_model)
+    message("Extracting LPD and features for given models: ",
+            paste(model_conf$fore_model, collapse = ", "))
+
     lpd_features0 <- foreach(i_ts = 1:length(data_test)) %dopar% lpd_feature_multi(data_test[[i_ts]], model_conf)
     lpd_features <- feature_clean(lpd_features0)
 
     save(lpd_features, file = lpd_features_loc$save_path)
+    message("LPD and features are loaded from", lpd_features_loc$save_path)
+
 } else
 {
     load(lpd_features_loc$save_path)
+    message("LPD and features are loaded from: ", lpd_features_loc$save_path)
 }
 
 ## Extract lpd and features from `model_conf$features`
@@ -115,6 +121,8 @@ SGLD_VS (data = lpd_features[[1]], logLik = logscore,
          logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
          SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
          minibatchSize = NULL, sig = 10)
+
+stop("Testing ends here!")
 
 SGLD_VS <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
     SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
