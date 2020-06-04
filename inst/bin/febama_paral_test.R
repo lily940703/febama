@@ -93,7 +93,7 @@ if(lpd_features_loc$calculate == TRUE)
             paste(model_conf$fore_model, collapse = ", "))
 
     lpd_features0 <- lapply(data_test, lpd_features_multi, model_conf=model_conf)
-    lpd_features <- feature_clean(lpd_features0, model_conf$features)
+    lpd_features <- feature_clean(lpd_features0)
 
     save(lpd_features, file = lpd_features_loc$save_path)
     message("LPD and features are saved to: ", lpd_features_loc$save_path)
@@ -103,14 +103,14 @@ if(lpd_features_loc$calculate == TRUE)
     message("LPD and features are loaded from: ", lpd_features_loc$save_path)
 }
 
-## Extract lpd and features from `model_conf$features`
+## Extract lpd and candidate features from `model_conf$features`
 for (i in 1:length(lpd_features)) {
     fe <- lpd_features[[i]]$feat
     fm <- lpd_features[[i]]$feat_mean
     fs <- lpd_features[[i]]$feat_sd
-    lpd_features[[i]]$feat<- fe[,colnames(fe) %in% model_conf$features]
-    lpd_features[[i]]$feat_mean <- fm[names(fm) %in% model_conf$features]
-    lpd_features[[i]]$feat_sd <- fs[names(fs) %in% model_conf$features]
+    lpd_features[[i]]$feat<- fe[, unique(unlist(model_conf$features))]
+    lpd_features[[i]]$feat_mean <- fm[unique(unlist(model_conf$features))]
+    lpd_features[[i]]$feat_sd <- fs[unique(unlist(model_conf$features))]
 }
 
 ## Algorithm
@@ -122,7 +122,7 @@ SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
 
 stop("Testing ends here!")
 
-SGLD_VS <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
+SGLD_VS <- foreach(i_ts = 1:length(lpd_features)) %dopar%
     SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
              logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
              SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,

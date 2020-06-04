@@ -162,7 +162,7 @@ SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
                     )
 {
     num_features  <- dim(data$feat)[2]
-    num_modelss <- dim(data$lpd)[2]
+    num_models <- dim(data$lpd)[2]
     I <- matrix(nrow = num_features , ncol = VS_iter)
     B <- list()
     result_all <- list()
@@ -172,8 +172,8 @@ SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
     for (i in 1:VS_iter) {
         if(i == 1){
             features_select <- which(I[,i]==1)
-            beta_start <- matrix(runif((length(features_select) + 1) * (model_num-1), -10, 10),
-                                 ncol = model_num-1)
+            beta_start <- matrix(runif((length(features_select) + 1) * (num_models-1), -10, 10),
+                                 ncol = num_models-1)
             rownames(beta_start) <- c("0", features_select)
         }else{
             accept_num <- accept_num +accept
