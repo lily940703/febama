@@ -12,6 +12,7 @@
 #' @export
 log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 {
+
     num_models_updated = length(beta)
     out = rapply(priArgs, function (x) 0, how="replace") # retain same out structure as priArgs.
 
