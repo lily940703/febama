@@ -17,17 +17,20 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 
     for(model_i in 1:num_models_updated)
     {
-        priArgsCur <- priArgs[[model_i]]
+        priArgsCurr <- priArgs[[model_i]]
+        betaCurr <- beta[[model_i]]
+        betaIdxCurr <- betaIdx[[model_i]] # p-by-1
+
 ###----------------------------------------------------------------------------
 ### Prior for variable selection indicators
 ###----------------------------------------------------------------------------
-        betaIdx <- betaIdx[[model_i]] # p-by-1
+        ## intercept as special case. The intercept should always be included.
         varSelCand <- varSelArgs[[model_i]][["cand"]]
 
         ## Variable section candidates checking. If (1) only intercept is in or (2)
         ## updating candidates is NULL, do not allow for variable selection. We do not
         ## need a prior;
-        if(length(betaIdx) == 1 | length(varSelCand) == 0) # intercept is always included.
+        if(length(betaIdxCurr) == 1 | length(varSelCand) == 0) # intercept is always included.
         {
             candIdx <- NULL
             logDens <- NULL
@@ -45,9 +48,9 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
             }
 
             ## Priors for variable selection indicators
-            varSelCandTF <- betaIdx[candIdx]
+            varSelCandTF <- betaIdxCurr[candIdx]
 
-            if(tolower(priArgsCur[["indicators"]][["type"]]) == "bern") # Bernoulli prior
+            if(tolower(priArgsCurr[["betaIdx"]][["type"]]) == "bern") # Bernoulli prior
             {
                 ## Note that independent Bernoulli prior can be very informative. See
                 ## Scott and Berger 2010 in Annals of Statistics Sec 3.2.
@@ -56,133 +59,86 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
                 logDens <- sum(dbinom(x = as.numeric(varSelCandTF), size = 1,
                                       prob = probMat, log = TRUE))
             }
-            else if(tolower(priArgsCur[["indicators"]][["type"]]) == "beta") # beta prior
+            else if(tolower(priArgsCurr[["betaIdx"]][["type"]]) == "beta") # beta prior
             {  ## Scott and Berger 2010 in Annals of Statistics Sec 3.3
-                alpha0 = priArgsCur[["indicators"]][["alpha"]]
-                beta0  = priArgsCur[["indicators"]][["beta"]]
+                alpha0 = priArgsCurr[["betaIdx"]][["alpha0"]]
+                beta0  = priArgsCurr[["betaIdx"]][["beta0"]]
 
                 varSelCand.N <- length(candIdx)
                 varSelCandT.N <- sum(varSelCandTF)
-                logDens <- (lbeta(alpha + varSelCandT.N,
-                                  beta + varSelCand.N - varSelCandT.N) -
-                            lbeta(alpha, beta))
+                logDens <- (lbeta(alpha0 + varSelCandT.N,
+                                  beta0 + varSelCand.N - varSelCandT.N) -
+                            lbeta(alpha0, beta0))
             }
         }
-        out[[model_i]][["indicators"]] <- logDens
+        out[[model_i]][["betaIdx"]] <- logDens
 
 ###----------------------------------------------------------------------------
 ### Prior for coefficients
 ###----------------------------------------------------------------------------
-
-        ## intercept as special case. The intercept should always be included.
-        betaCur <- beta[[model_i]]#intercepts
-
-        if(tolower(priArgsCur[["indicators"]][["type"]]) == "norm")
+        if(tolower(priArgsCurr[["beta"]][["type"]]) == "cond-mvnorm")
         {
-            mean <- priArgsCur[["indicators"]][["mean"]] # mean of density
-            covariance <- priArgsCur[["indicators"]][["covariance"]] # Covariates
-            shrinkage <- priArgsCur[["indicators"]][["shrinkage"]] # Shrinkage
+            mean <- priArgsCurr[["beta"]][["mean"]] # mean of density
+            covariance <- priArgsCurr[["beta"]][["covariance"]] # Covariates
+            shrinkage <- priArgsCurr[["beta"]][["shrinkage"]] # Shrinkage
 
-            logDens <- dnorm(x = beta[1], mean = mean,
-                             sd = sqrt(variance*shrinkage), log = TRUE)
-            out[[model_i]][["beta"]][["intercept"]] <- logDens
+            ## Normal distribution condition normal The full beta vector is assumed as
+            ## normal. Since variable selection is included in the MCMC, The final
+            ## proposed beta are those non zeros. We need to using the conditional normal
+            ## density See Mardia p. 63
+
+            ## Split the beta vector by selected and non-selected.
+            Idx1 <- which(betaIdxCurr == TRUE)
+            Idx0 <- which(betaIdxCurr == FALSE)
+
+            Idx0Len <- length(Idx0)
+            Idx1Len <- length(Idx1)
+
+            ## The mean vector (recycled if necessary)
+            meanVec <- matrix(mean, 1, length(betaCurr))
+
+            if(tolower(covariance) == "identity")
+            {
+                coVar <- diag(shrinkage, nrow = length(betaCurr))
+            }
+            else if(tolower(covariance) == "g-prior")
+            {
+                stop("Not implemented.")
+                ## The covariance matrix for the whole beta vector
+                ## The covariance matrix for the whole beta vector
+                ## X <- X[[model_i]]
+                ## coVar0 <- qr.solve(crossprod(X))
+                ## coVar0Lst <- lapply(as.vector(rep(NA, nPar),"list"),
+                ##                     function(x) coVar0)
+                ## coVar <- block.diag(coVar0Lst)
+            }
+
+            ## Calculate the log density
+            if(Idx0Len == 0L)
+            {   ## 1. all are selected or Switch to unconditional prior.
+                out[[model_i]][["beta"]] <- dmvnorm(matrix(betaCurr, nrow = 1), meanVec, coVar, log = TRUE)
+            }
+            else
+            {  ## 2. some are selected (at least the intercept is always selected ) Using the conditional prior
+                A <- coVar[Idx1, Idx0]%*%solve(coVar[Idx0, Idx0])
+                condMean <- meanVec[Idx1] - A%*%meanVec[Idx0]
+                condCovar <- coVar[Idx1, Idx1] - A%*%coVar[Idx0, Idx1]
+
+                out[[model_i]][["beta"]] <- dmvnorm(matrix(betaCurr[Idx1], nrow = 1), condMean, condCovar, log = TRUE)
+            }
         }
         else
         {
             stop("No such prior.")
         }
-
-        ## coefficients (conditional on variable selection indicators)
-        priArgsCur <- priArgs[[model_i]]
-
-        ## Slopes and variable selection indicators(taking away intercept)
-        betaCur <- beta[[model_i]][-1]
-        betaIdxNoInt <- betaIdx[[model_i]][-1]
-
-        if(length(betaIdxNoInt) == 0L)
-        { ## No covariates at all (only intercept in the model)
-            out[[model_i]][["beta"]][["slopes"]] <- NULL
-        }
-        else
-        {
-            if(tolower(priArgsCur[["slopes"]][["type"]]) == "cond-mvnorm")
-            {
-                ## Normal distribution condition normal The full beta vector is assumed as
-                ## normal. Since variable selection is included in the MCMC, The final
-                ## proposed beta are those non zeros. We need to using the conditional
-                ## normal density See Mardia p. 63
-
-                ## Subtract the prior information for the full beta
-                betaCur = beta[[model_i]][-1]
-                mean <- priArgsCur[["slopes"]][["mean"]] # mean of density
-                covariance <- priArgsCur[["slopes"]][["covariance"]] # Covariates
-                shrinkage <- priArgsCur[["slopes"]][["shrinkage"]] # Shrinkage
-
-                ## Split the beta vector by selected and non-selected.
-                Idx1 <- which(betaIdxNoInt == TRUE)
-                Idx0 <- which(betaIdxNoInt == FALSE)
-
-                Idx0Len <- length(Idx0)
-                Idx1Len <- length(Idx1)
-
-                ## The mean vector (recycled if necessary)
-                meanVec <- matrix(mean, 1, betaLen)
-
-                ## The covariance matrix for the whole beta vector
-                if(tolower(covariance) == "g-prior")
-                {
-                    ## The covariance matrix for the whole beta vector
-                    X <- X[[model_i]][, -1, drop = FALSE]
-                    coVar0 <- qr.solve(crossprod(X))
-                    coVar0Lst <- lapply(as.vector(rep(NA, nPar),"list"),
-                                        function(x) coVar0)
-
-                    coVar <- block.diag(coVar0Lst)
-
-                }
-                else if(tolower(covariance) == "identity")
-                {
-                    coVar <- diag(betaLen)
-                }
-
-                ## Calculate the log density
-                if(Idx0Len == 0L)
-                {   ## 1. all are selected or Switch to unconditional prior.
-                    out[[model_i]][["beta"]][["slopes"]] <- dmvnorm(matrix(betaCur, nrow = 1),
-                                                                    meanVec, coVar*shrinkage, log = TRUE)
-                }
-                else if( Idx0Len == betaLen)
-                {   ## 2. non are selected: Switch to unconditional prior.
-                    out[[model_i]][["beta"]][["slopes"]] <- dmvnorm(matrix(beta, nrow = 1),
-                                                                    meanVec, coVar*shrinkage, log = TRUE)
-                }
-                else if(Idx0Len > 0 & Idx0Len < betaLen)
-                {
-                    ## 3. some are selected Using the conditional prior
-                    A <- coVar[Idx1, Idx0]%*%solve(coVar[Idx0, Idx0])
-                    condMean <- meanVec[Idx1] - A%*%meanVec[Idx0]
-                    condCovar <- coVar[Idx1, Idx1] - A%*%coVar[Idx0, Idx1]
-
-                    out[[model_i]][["beta"]][["slopes"]] <- dmvnorm(matrix(beta[Idx1], nrow = 1),
-                                                                    condMean, condCovar*shrinkage, log = TRUE)
-                }
-                else
-                {
-                    stop("No such conditional priors.")
-                }
-            }
-        }
+    }
 ###----------------------------------------------------------------------------
 ### Update the output for prior
 ###----------------------------------------------------------------------------
-        logPri[[model_i]] <- out
-    }
-
     if(sum)
     {
         out = sum(unlist(out))
     }
-
     return(out)
 }
 
@@ -209,28 +165,28 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
     out = beta # retain same out structure as priArgs.
 
     ## Gradient for the intercept as a special case because its prior is different
-    priArgsCur <- priArgsCur[[model_i]][["beta"]][["intercept"]]
-    betaCur <- beta[[model_i]][1] # the intercepts
+    priArgsCurr <- priArgsCurr[[model_i]][["beta"]]
+    betaCurr <- beta[[model_i]][1] # the intercepts
 
     if(tolower(priArgs[["type"]]) == "custom")
     {
         ## Call the any2any() function
         densOutput <- any2any(densArgs = priArgs)
 
-        mean <- priArgsCur[["intercept"]][["mean"]] # mean of density
-        covariance <- priArgsCur[["intercept"]][["covariance"]] # Covariates
-        shrinkage <- priArgsCur[["intercept"]][["shrinkage"]] # Shrinkage
+        mean <- priArgsCurr[["beta"]][["mean"]] # mean of density
+        covariance <- priArgsCurr[["beta"]][["covariance"]] # Covariates
+        shrinkage <- priArgsCurr[["beta"]][["shrinkage"]] # Shrinkage
 
         ## The output
         out[[model_i]][1] <- -1/(covariance * shrinkage) * (betaCur-mean)
     }
 
     ## Gradient for beta|I for beta (unconditional)
-    priArgs <- priArgs[[model_i]][["beta"]][["slopes"]]
+    priArgs <- priArgs[[model_i]][["beta"]]
 
     ## Slopes and variable selection indicators(taking away intercept)
-    betaCur <- beta[[model_i]][-1]
-    betaIdxNoInt <- betaIdx[[model_i]][-1]
+    betaCurr <- beta[[model_i]][-1]
+    betaIdxCurr <- betaIdx[[model_i]][-1]
 
     for(model_i in 1:num_models)
     {
@@ -244,21 +200,21 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
                 ## conditional normal density See Mardia p. 63.
 
                 ## Subtract the prior information for the full beta
-                mean <- priArgsCur[["mean"]] # mean of density
-                covariance <- priArgsCur[["covariance"]] # Covariates
-                shrinkage <- priArgsCur[["shrinkage"]] # Shrinkage
+                mean <- priArgsCurr[["mean"]] # mean of density
+                covariance <- priArgsCurr[["covariance"]] # Covariates
+                shrinkage <- priArgsCurr[["shrinkage"]] # Shrinkage
 
                 ## Split the beta vector by zero and nonzero.
-                Idx1 <- which(betaIdxNoInt == TRUE)
-                Idx0 <- which(betaIdxNoInt == FALSE)
+                Idx1 <- which(betaIdxCurr == TRUE)
+                Idx0 <- which(betaIdxCurr == FALSE)
                 Idx0Len <- length(Idx0)
                 Idx1Len <- length(Idx1)
-                betaLen <- length(betaIdxNoInt)
+                betaLen <- length(betaIdxCurr)
 
-                SlopCondGrad <- array(NA, dim(betaIdxNoInt))
+                SlopCondGrad <- array(NA, dim(betaIdxCurr))
 
                 ## The mean vector for the whole beta vector (recycled if necessary)
-                meanVec <- array(mean, dim(betaIdxNoInt))
+                meanVec <- array(mean, dim(betaIdxCurr))
 
                 ## The covariance matrix for the whole beta vector
                 if(tolower(covariance) == "g-prior")
