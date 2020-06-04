@@ -23,8 +23,6 @@ data_test <- M4[sample(c(23001:47000), 10)]
 lpd_features_loc = list("calculate" = FALSE,
                         save_path = "data/lpd_features_yearly.Rdata")
 
-
-
 num_models = 3
 model_conf = list(
     frequency = 4
