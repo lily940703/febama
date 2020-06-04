@@ -10,6 +10,7 @@ setwd("~/code/febama")
 source("R/features.R")
 source("R/models.R")
 source("R/mcmc.R")
+source("R/priors.R")
 source("R/posterior.R")
 source("R/febama.R")
 

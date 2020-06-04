@@ -1,19 +1,48 @@
-proposal_I <- function(n){
-    repeat{
-        I <- rbinom(n, 1, 0.5)
-        if(sum(I != 0) != 0){
-            break
+SGLD_VS <- function(data, logLik, logLik_grad, prior, model_conf)
+{
+    num_features  <- dim(data$feat)[2]
+    num_models <- dim(data$lpd)[2]
+    I <- matrix(nrow = num_features , ncol = VS_iter)
+    B <- list()
+    result_all <- list()
+    I[,1] <- rbinom(num_features,1,0.5)
+    accept_num <- 1
+    iter <- SGLD_iter
+    for (i in 1:VS_iter) {
+        if(i == 1){
+            features_select <- which(I[,i]==1)
+            beta_start <- matrix(runif((length(features_select) + 1) * (num_models-1), -10, 10),
+                                 ncol = num_models-1)
+            rownames(beta_start) <- c("0", features_select)
+        }else{
+            accept_num <- accept_num +accept
+            I[,i] <-I0
+            features_select <- which(I[,i]==1)
+            beta_start <- beta_start
         }
+        res_SGLD <- SGLD_gibbs(data = data, logLik = logscore, logLik_grad = logscore_grad,
+                             prior = prior, beta = beta_start, betaIdx = betaIdx,
+                             minibatchSize = minibatchSize, stepsize = stepsize,
+                             iter = iter, features_select = features_select, sig = sig)
+        B[[i]] <- res_SGLD$beta_out
+        result_all[[i]] <- res_SGLD
+        I0 <- I[,i]
+        MH <- MH_step (x = I0, beta0 = B[[i]], data =data,
+                       logp = log_posterior, proposal = proposal_I)
+        I0 <- MH$I
+        beta_start <- MH$beta_start
+        accept <- MH$accept
+                                        # 如果I没有被接收，SGLD迭代次数为SGLD_iter_noVS；
+                                        # 如果I被接收，SGLD迭代次数为SGLD_iter
+                                        # 不做此步 ，可以注释掉if(){}
+        if(accept == 0) {iter = SGLD_iter_noVS}else{iter = SGLD_iter}
     }
-    return(I)
+    return(list(I = I, B = B, result_all = result_all, acceptance = accept_num/VS_iter))
 }
 
 
-SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NULL,
-                     stepsize = NULL, tol = 1e-5, iter = 5000, samplesize = 0.1,sig = 10,
-                     features_select, I, intercept = TRUE, gama = 0.55, a = 0.4, b = 10 )
+SGLD_gibbs <- function(data, logLik, logLik_grad, prior, beta, beta_idx, model_conf)
 {
-    browser()
     beta_all <- start
 
     prob <- exp(data$lpd)
@@ -21,9 +50,9 @@ SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NU
     num_models <- dim(prob)[2]
     features <- data$feat
 
-    if(! is.null(minibatchSize)){
-        minibatchSize = minibatchSize
-    } else if (length(prob[,1]) <= 10){
+    betaIdx = I
+
+    if (length(prob[,1]) <= 64){
         minibatchSize = 1
     }else {
         minibatchSize = 0.1
@@ -47,7 +76,8 @@ SGLD_gib <- function(data, logLik, logLik_grad, prior, start, minibatchSize = NU
     res <- list()
     for (i in 1:(num_models-1)) {
 
-        prior0 <- log_priors(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
+        browser()
+        prior0 <- log_priors(beta = beta_all, betaIdx = betaIdx, varSelArgs = model_conf$varSelArgs, priArgs = model_conf$priArgs, sum = TRUE)
 
         logLik0 <- logscore (beta = beta_all, features = features,
                            features_select = features_select,
@@ -155,54 +185,6 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
     return(list(I = x, beta_start = beta_start, accept = accept))
 }
 
-SGLD_VS <- function(data, logLik, logLik_grad, prior, stepsize = NULL,
-                    SGLD_iter = 100, SGLD_iter_noVS = 10, VS_iter = 100,
-                    minibatchSize = NULL, sig = 10,
-                    beta_init
-                    )
-{
-    num_features  <- dim(data$feat)[2]
-    num_models <- dim(data$lpd)[2]
-    I <- matrix(nrow = num_features , ncol = VS_iter)
-    B <- list()
-    result_all <- list()
-    I[,1] <- rbinom(num_features,1,0.5)
-    accept_num <- 1
-    iter <- SGLD_iter
-    for (i in 1:VS_iter) {
-        if(i == 1){
-            features_select <- which(I[,i]==1)
-            beta_start <- matrix(runif((length(features_select) + 1) * (num_models-1), -10, 10),
-                                 ncol = num_models-1)
-            rownames(beta_start) <- c("0", features_select)
-        }else{
-            accept_num <- accept_num +accept
-            I[,i] <-I0
-            features_select <- which(I[,i]==1)
-            beta_start <- beta_start
-        }
-        res_SGLD <- SGLD_gib(data = data, logLik = logscore, logLik_grad = logscore_grad,
-                             prior = prior, start = beta_start, I = I[,i],
-                             minibatchSize = minibatchSize, stepsize = stepsize,
-                             iter = iter, features_select = features_select, sig = sig)
-        B[[i]] <- res_SGLD$beta_out
-        result_all[[i]] <- res_SGLD
-        I0 <- I[,i]
-        MH <- MH_step (x = I0, beta0 = B[[i]], data =data,
-                       logp = log_posterior, proposal = proposal_I)
-        I0 <- MH$I
-        beta_start <- MH$beta_start
-        accept <- MH$accept
-                                        # 如果I没有被接收，SGLD迭代次数为SGLD_iter_noVS；
-                                        # 如果I被接收，SGLD迭代次数为SGLD_iter
-                                        # 不做此步 ，可以注释掉if(){}
-        if(accept == 0) {iter = SGLD_iter_noVS}else{iter = SGLD_iter}
-    }
-    return(list(I = I, B = B, result_all = result_all, acceptance = accept_num/VS_iter))
-}
-
-
-
 #' Simple algorithm to optimize model parameters.
 #'
 #' This can be used as initial values in MCMC or just for simple optimizations
@@ -254,6 +236,15 @@ optim_beta <- function(lpd_features, features_y = NULL) {
     return(list(beta_optim = beta_optim, logscore = w_max$value))
 }
 
+proposal_I <- function(n){
+    repeat{
+        I <- rbinom(n, 1, 0.5)
+        if(sum(I != 0) != 0){
+            break
+        }
+    }
+    return(I)
+}
 
 beta_prepare <- function(res_SGLD_VS){
     beta_pre0 <-list()
