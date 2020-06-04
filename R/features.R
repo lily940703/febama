@@ -4,7 +4,7 @@
 #' @return a list including two matrices of log probability densities and features.
 #' @author Feng Li
 #' @export
-lpd_feature_multi <- function(data, model_conf) {
+lpd_features_multi <- function(data, model_conf) {
 
     feature_window = model_conf$feature_window
     roll = model_conf$roll
@@ -84,8 +84,8 @@ lpd_feature_multi <- function(data, model_conf) {
 
     features_y_scaled = scale(features_y, center = TRUE, scale = TRUE)
 
-    lpd_feature <- list(lpd = log_pred_densities, feat = features_y_scaled)
-    return(lpd_feature)
+    lpd_features <- list(lpd = log_pred_densities, feat = features_y_scaled)
+    return(lpd_features)
 }
 
 features_window <- function(y, window, history_burn, train_h){
@@ -113,17 +113,16 @@ features_window <- function(y, window, history_burn, train_h){
 
 #' Delete the features with NaN and add attributes
 #'
-#' @param lpd_feature
+#' @param lpd_features
 #' @return final features
 #' @author Feng Li
 #' @export
-feature_clean <- function(lpd_feature){
-    for (i in 1:length(lpd_feature)) {
-        ind <- which(is.nan(lpd_feature[[i]]$feat), arr.ind = T)[,2]
-        ind0 <- ind[!duplicated(ind)]
-        lpd_feature[[i]]$feat_mean <- attr(lpd_feature[[i]]$feat, "scaled:center")[-ind0]
-        lpd_feature[[i]]$feat_sd <- attr(lpd_feature[[i]]$feat, "scaled:scale")[-ind0]
-        lpd_feature[[i]]$feat <- lpd_feature[[i]]$feat[, -ind0]
+feature_clean <- function(lpd_features){
+    for (i_ts in 1:length(lpd_features)) {
+        NA_ind <- apply(lpd_features[[i_ts]]$feat, 2, anyNA)
+        lpd_features[[i_ts]]$feat_mean <- attr(lpd_features[[i_ts]]$feat, "scaled:center")[!NA_ind]
+        lpd_features[[i_ts]]$feat_sd <- attr(lpd_features[[i_ts]]$feat, "scaled:scale")[!NA_ind]
+        lpd_features[[i_ts]]$feat <- lpd_features[[i_ts]]$feat[, !NA_ind]
     }
-    return(lpd_feature)
+    return(lpd_features)
 }

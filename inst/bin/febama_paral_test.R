@@ -2,6 +2,7 @@
 
 ## path = "/gs/home/kangyf/lily/febama"
 ## setwd(path)
+rm(list = ls())
 setwd("~/code/febama")
 
 ## Load R functions,
@@ -20,7 +21,7 @@ load("data/M4.rda")
 data_test <- M4[sample(c(23001:47000), 10)]
 
 # Should recalculate the features and save to path, or load from the saved path.
-lpd_features_loc = list("calculate" = FALSE,
+lpd_features_loc = list("calculate" = TRUE,
                         save_path = "data/lpd_features_yearly.Rdata")
 
 num_models = 3
@@ -64,12 +65,12 @@ model_conf = list(
 )
 
 ## -------------------------  Experiment  ----------------------------#
-library(foreach)
-library(doParallel)
-cl <- makeCluster(parallel::detectCores())
-registerDoParallel(cl)
+## library(foreach)
+## library(doParallel)
+## cl <- makeCluster(parallel::detectCores())
+## registerDoParallel(cl)
 
-clusterEvalQ(cl,{
+## clusterEvalQ(cl,{
     library("tsfeatures")
     library("M4metalearning")
     library("forecast")
@@ -81,9 +82,9 @@ clusterEvalQ(cl,{
     library("mvtnorm")
     library("base")
     library("MASS")
-})
+## })
 
-clusterExport(cl, model_conf$fore_model)
+## clusterExport(cl, model_conf$fore_model)
 
 if(lpd_features_loc$calculate == TRUE)
 {
@@ -91,20 +92,19 @@ if(lpd_features_loc$calculate == TRUE)
     message("Extracting LPD and features for given models: ",
             paste(model_conf$fore_model, collapse = ", "))
 
-    lpd_features0 <- foreach(i_ts = 1:length(data_test)) %dopar% lpd_feature_multi(data_test[[i_ts]], model_conf)
-    lpd_features <- feature_clean(lpd_features0)
+    lpd_features0 <- lapply(data_test, lpd_features_multi, model_conf=model_conf)
+    lpd_features <- feature_clean(lpd_features0, model_conf$features)
 
     save(lpd_features, file = lpd_features_loc$save_path)
-    message("LPD and features are loaded from", lpd_features_loc$save_path)
+    message("LPD and features are saved to: ", lpd_features_loc$save_path)
 
-} else
-{
+} else {
     load(lpd_features_loc$save_path)
     message("LPD and features are loaded from: ", lpd_features_loc$save_path)
 }
 
 ## Extract lpd and features from `model_conf$features`
-for (i in 1:length(lpd_feature)) {
+for (i in 1:length(lpd_features)) {
     fe <- lpd_features[[i]]$feat
     fm <- lpd_features[[i]]$feat_mean
     fs <- lpd_features[[i]]$feat_sd
@@ -115,7 +115,7 @@ for (i in 1:length(lpd_feature)) {
 
 ## Algorithm
 i_ts = 1
-SGLD_VS (data = lpd_features[[1]], logLik = logscore,
+SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
          logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
          SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
          minibatchSize = NULL, sig = 10)
