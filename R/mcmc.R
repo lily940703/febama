@@ -1,32 +1,60 @@
-SGLD_VS <- function(data, logLik, logLik_grad, prior, model_conf)
+SGLD_VS <- function(data, model_conf)
 {
-    num_features  <- dim(data$feat)[2]
-    num_models <- dim(data$lpd)[2]
-    I <- matrix(nrow = num_features , ncol = VS_iter)
-    B <- list()
-    result_all <- list()
-    I[,1] <- rbinom(num_features,1,0.5)
+    ## Extract arguments
+    algArgs = model_conf$algArgs
+    varSelArgs = model_conf$varSelArgs
+    priArgs = model_conf$priArgs
+
+    nIter = algArgs$nIter
+
+    ## Reserve space for beta
+    OUT_beta_full = lapply(model_conf$features,
+                       function(x) matrix(nrow=nIter,ncol=length(x)+1))
+
+    ## Initialize variable selection indicators
+    OUT_betaIdx_full = mapply(function(x, y){
+        if(y$init == "all-in")
+        {
+            x[1, ] = 1
+        }
+        else if(y$init == "random")
+        {
+            x[1, ] = c(1, rbinom(length(x) - 1, 1, 0.5)) # intercept is always in.
+        }
+        return(x)
+    }, x = OUT_beta_full, y = varSelArgs, SIMPLIFY = FALSE)
+
+    ## Numeric optimization to obtain MAP (Maximum a Posteriori)
+    betaIdx_curr = lapply(OUT_betaIdx_full, function(x) x[1,])
+    beta_curr = lapply(betaIdx_curr, function(x) rnorm(length(x)))
+
+    beta_optim = optim(unlist(beta_curr), fn = log_posterior,
+                       data = data,
+                       betaIdx = betaIdx_curr,
+                       priArgs = priArgs,
+                       varSelArgs = varSelArgs,
+                       features_used = model_conf$features_used,
+                       method = "BFGS",
+                       control = list(fnscale = -1, maxit = 10))
+    beta_curr = betaVec2Lst(beta_optim$par, betaIdx_curr)
+    OUT_beta_full = mapply(function(x, y){
+        x[1, ] = y
+        return(x)
+    }, x = OUT_beta_full, y = beta_curr, SIMPLIFY = FALSE)
+
     accept_num <- 1
     iter <- SGLD_iter
     for (i in 1:VS_iter) {
-        if(i == 1){
-            features_select <- which(I[,i]==1)
-            beta_start <- matrix(runif((length(features_select) + 1) * (num_models-1), -10, 10),
-                                 ncol = num_models-1)
-            rownames(beta_start) <- c("0", features_select)
-        }else{
-            accept_num <- accept_num +accept
-            I[,i] <-I0
-            features_select <- which(I[,i]==1)
-            beta_start <- beta_start
-        }
+        accept_num <- accept_num +accept
+        I[,i] <-I0
+        features_select <- which(I[,i]==1)
+        beta_start <- beta_start
+
         res_SGLD <- SGLD_gibbs(data = data, logLik = logscore, logLik_grad = logscore_grad,
-                             prior = prior, beta = beta_start, betaIdx = betaIdx,
-                             minibatchSize = minibatchSize, stepsize = stepsize,
-                             iter = iter, features_select = features_select, sig = sig)
-        B[[i]] <- res_SGLD$beta_out
-        result_all[[i]] <- res_SGLD
-        I0 <- I[,i]
+                               prior = prior, beta = beta_start, betaIdx = betaIdx,
+                               minibatchSize = minibatchSize, stepsize = stepsize,
+                               iter = iter, features_select = features_select, sig = sig)
+
         MH <- MH_step (x = I0, beta0 = B[[i]], data =data,
                        logp = log_posterior, proposal = proposal_I)
         I0 <- MH$I
@@ -193,8 +221,8 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
 #' @param features_y
 #' @return
 #' @author Feng Li
-optim_beta <- function(lpd_features, features_y = NULL) {
-    y_lpd <- lpd_features$lpd
+optim_beta <- function(data) {
+    y_lpd <- data$lpd
 
     prob <- exp(y_lpd)
     prob[prob == 0] <- 1e-323
@@ -202,6 +230,8 @@ optim_beta <- function(lpd_features, features_y = NULL) {
     num_models <- length(lpd_features$lpd[1,])
 
     ini <-  t(data.matrix(rep(0, num_models-1)))
+
+
 
     w_max <- try(optim(
         par = ini,

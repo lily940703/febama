@@ -1,51 +1,51 @@
 #' Calculate the log predictive score for a time series with pools of models.
 #'
-#'
+#' The intercept is always included in the model.
 #' @title log predictive score with features
-#' @param beta p-by-(n-1) matrix
+#' @param beta list
 #' @param features T-by-p feature matrix, usually standardized.
-#' @param features_select a vector including the numbers of the features to be taken into
+#' @param betaIdx a vector including the numbers of the features to be taken into
 #'     consideration. IF is `NULL`, no features. At this time, the intercept must be
 #' TRUE.
 #' @param prob T-by-n predictive densities.
-#' @param intercept TRUE or FALSE Should intercept be used in feature weights?
 #' @param sum If TRUE, return the sume of log predictive densities.
 #' @return List
 #' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
 #' @author Feng Li
-logscore <- function(beta, features, features_select = ncol(features), prob, intercept = T, sum = TRUE)
+logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
 {
-    ## No features if features_select = NULL
-    if(is.null(features_select)){
-        features0 <- NULL
-        intercept = TRUE
-    }else{
-        features0<-data.matrix(features[,features_select])
+    prob = exp(data$lpd)
+    prob[prob == 0] <- 1e-16
+
+    num_models_updated <- length(beta)
+    nObs = nrow(prob)
+
+    exp_lin = matrix(NA, nObs, num_models_updated + 1)
+
+    for(model_i in 1:num_models_updated)
+    {
+        betaCurr = beta[[model_i]]
+        betaIdxCurr = betaIdx[[model_i]]
+        features_used_curr = features_used[[model_i]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
+
+        me <- features0[, betaIdxCurr == 1, drop = FALSE] %*% matrix(betaCurr[betaIdxCurr == 1])
+        me[me>709] <- 709 # avoid overflow
+        exp_lin[, model_i] = exp(me)
     }
 
-    ## Intercept
-    if(intercept) features0 = cbind(rep(1, nrow(prob)), features0)
-
-    num_model <- dim(prob)[2]
-
-    me <- features0 %*% beta
-    me[me>709] <- 709 # avoid overflow
-    exp_lin = exp(me)
-
-    # Villani, M., Kohn, R., & Giordani, P. (2009). Regression density estimation using
-    # smooth adaptive Gaussian mixtures. Journal of Econometrics, 153(2), 155-173.
-    deno = matrix (rep((1+rowSums(exp_lin)), num_model-1), ncol = num_model-1)
-    w <- exp_lin/ deno # T-by-(n-1)
-    w_full = cbind(w, 1 - rowSums(w)) # T-by-n, assuming last is deterministic
+    ## Villani, M., Kohn, R., & Giordani, P. (2009). Regression density estimation
+    ## using smooth adaptive Gaussian mixtures. Journal of Econometrics, 153(2),
+    ## 155-173.
+    exp_lin[, num_models_updated + 1] = 1 # assume last model is 1
+    weights <- exp_lin/ rowSums(exp_lin) # T-by-n, assuming last is deterministic
+    out = log(rowSums(weights * prob))
 
     if(sum == TRUE)
     {
-        out = sum(log(rowSums(w_full * prob)))
+        out = sum(out)
     }
-    else
-    {
-        out = log(rowSums(w_full * prob))
-    }
+
     return(out)
 }
 
@@ -60,14 +60,14 @@ logscore <- function(beta, features, features_select = ncol(features), prob, int
 #' @param modelcaller which model components should be considered?
 #' @return p-by-length(modelcaller) matrix for the gradient.
 #' @author Feng Li
-logscore_grad <- function(beta, features, features_select = ncol(features), prob,
+logscore_grad <- function(beta, features, betaIdx = ncol(features), prob,
                            intercept, modelcaller)
 {
-  if(is.null(features_select)){
+  if(is.null(betaIdx)){
       features0<-NULL
       intercept = TRUE
   }else{
-    features0<-data.matrix(features[,features_select])
+    features0<-data.matrix(features[,betaIdx])
   }
   if(intercept) features0 = cbind(rep(1, nrow(prob)), features0)
 

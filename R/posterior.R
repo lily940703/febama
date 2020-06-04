@@ -1,20 +1,39 @@
- # beta <- matrix(rep(5,20), ncol = 4)
- # I <- c(0,1,0,1,0,1,1)
- # prior (beta, I, sig = 10)
- # gradient_prior (beta, I, sig = 10)
- # a1 <- jacobian(func = dmvnorm , x = as.vector(beta[,1]), method="Richardson",
- #          mean=matrix(0, 5, 1),sigma = 10*diag(5))
- # a1 * prior (beta[,2:4], I, sig = 10)
+log_posterior <- function(data, beta, betaIdx, priArgs, varSelArgs, features_used, model_update = 1:length(betaIdx))
+{
+    beta_list = beta
 
-log_posterior <- function(data, beta, I, prior = prior,
-                          logLik = logscore, sig = 10){
-    pri <- log_prior(beta, I, sig = sig)
-    features_select <- which(I==1)
-    prob <- exp(data$lpd)
-    prob[prob == 0] <- 1e-323
-    features <- data$feat
-    LS <- logscore(beta = beta, features = features, features_select = features_select,
-                 prob = prob, intercept = TRUE, sum = TRUE)
-    log_post <- log(pri) + LS
-    return(log_post)
+    ## Special case to allow for vector beta, used in optim MAP
+    if(!is.list(beta))
+    {
+        beta_list = betaVec2Lst(beta, betaIdx)
+    }
+
+    ## log prior with conditional
+    lpri = log_priors(beta = beta_list[model_update],
+                      betaIdx = betaIdx[model_update],
+                      varSelArgs = varSelArgs[model_update],
+                      priArgs = priArgs[model_update], sum = TRUE)
+
+    ## log score (log likelihood)
+    lscore <- logscore(data = data,
+                       beta = beta_list,
+                       betaIdx = betaIdx,
+                       features_used = features_used,
+                       sum = TRUE)
+    out <- lpri + lscore
+    return(out)
+}
+
+betaVec2Lst = function(beta, betaIdx)
+{
+    beta_list = list()
+    a = 1
+    for(model_i in 1:length(betaIdx))
+    {
+        b = a + length(betaIdx[[model_i]]) - 1
+        beta_list[[model_i]] = beta[a:b]
+        a = b + 1
+    }
+
+    return(beta_list)
 }

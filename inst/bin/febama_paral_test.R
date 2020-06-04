@@ -35,7 +35,7 @@ model_conf = list(
   , PI_level = 90 # Predictive Interval level, used to extract out-of-sample variance from forecasting models.
   , roll = NULL # The length of rolling samples, larger than history_burn
   , feature_window =NULL # The length of moving window when computing features
-  , features = rep(list(c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")), num_models - 1)
+  , features_used = rep(list(c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")), num_models - 1)
   , fore_model = c("ets_fore",  "naive_fore", "rw_drift_fore")
 
     ## Variable selection settings. By default, every model shares the same
@@ -45,17 +45,14 @@ model_conf = list(
     ## user-input)
   , varSelArgs = rep(list(list(cand = "2:end", init = "all-in")), num_models - 1)
 
-  , priArgs = rep(list(list("beta" = list("intercept" = list(type = "custom",
-                                                             input = list(type = "norm",  mean = 0, variance = 1),
-                                                             output = list(type = "norm", shrinkage = 1)),
-                                          "slopes" = list(type = "cond-mvnorm",
-                                                          mean = 0, covariance = "identity", shrinkage = 1)),
-                            "indicators" = list(type = "beta", alpha = 1, beta = 1))), num_models - 1)
+  , priArgs = rep(list(list("beta" = list(type = "cond-mvnorm",
+                                          mean = 0, covariance = "identity", shrinkage = 1),
+                            "betaIdx" = list(type = "beta", alpha0 = 1, beta0 = 1))), num_models - 1)
   , algArgs = list(initOptim = TRUE, # Use LBFGS to optimize initial values
                    algName = "sgld", # could be NA, results are only based on optimization.
+                   nIter = 20, # number of iterations
                    "sgld" = list(stepsize = NULL,
                                  tol = 1e-5,
-                                 iter = 5000,
                                  samplesize = 0.1,
                                  sig = 10,
                                  gama = 0.55,
@@ -116,10 +113,7 @@ for (i in 1:length(lpd_features)) {
 
 ## Algorithm
 i_ts = 1
-SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
-         logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
-         SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
-         minibatchSize = NULL, sig = 10)
+SGLD_VS(data = lpd_features[[i_ts]], model_conf = model_conf)
 
 stop("Testing ends here!")
 
