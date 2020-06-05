@@ -24,35 +24,40 @@ febama_mcmc <- function(data, model_conf)
         return(x)
     }, x = OUT_beta_full, y = varSelArgs, SIMPLIFY = FALSE)
 
-    ## Numeric optimization to obtain MAP (Maximum a Posteriori)
     betaIdx_curr = lapply(OUT_betaIdx_full, function(x) x[1,])
     beta_curr = lapply(betaIdx_curr, function(x) rnorm(length(x)))
 
-    beta_optim = optim(unlist(beta_curr), fn = log_posterior,
-                       data = data,
-                       betaIdx = betaIdx_curr,
-                       priArgs = priArgs,
-                       varSelArgs = varSelArgs,
-                       features_used = model_conf$features_used,
-                       method = "BFGS",
-                       control = list(fnscale = -1, maxit = 10))
-    beta_curr = betaVec2Lst(beta_optim$par, betaIdx_curr)
+    ## Numeric optimization to obtain MAP (Maximum a Posteriori)
+    if(algArgs$initOptim == TRUE)
+    {
+        beta_optim = optim(unlist(beta_curr), fn = log_posterior,
+                           data = data,
+                           betaIdx = betaIdx_curr,
+                           priArgs = priArgs,
+                           varSelArgs = varSelArgs,
+                           features_used = model_conf$features_used,
+                           method = "BFGS",
+                           control = list(fnscale = -1, maxit = 10))
+        beta_curr = betaVec2Lst(beta_optim$par, betaIdx_curr)
+    }
+
+    ## Assign initial values (conditional of variable selections)
     OUT_beta_full = mapply(function(x, y){
         x[1, ] = y
         return(x)
     }, x = OUT_beta_full, y = beta_curr, SIMPLIFY = FALSE)
 
-    accept_num <- 1
-    iter <- SGLD_iter
-    for (i in 1:VS_iter) {
-        accept_num <- accept_num +accept
-        I[,i] <-I0
-        features_select <- which(I[,i]==1)
-        beta_start <- beta_start
 
-        res_SGLD <- SGLD_gibbs(data = data, logLik = logscore, logLik_grad = logscore_grad,
-                               prior = prior, beta = beta_start, betaIdx = betaIdx,
-                               minibatchSize = minibatchSize, stepsize = stepsize,
+    ## Loop for SGLD and variable selection (periodically)
+    n_VSIter = 10
+    for (i in 1:nVSIter)
+    {
+
+
+
+
+
+        res_SGLD <- SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
                                iter = iter, features_select = features_select, sig = sig)
 
         MH <- MH_step (x = I0, beta0 = B[[i]], data =data,
@@ -60,9 +65,8 @@ febama_mcmc <- function(data, model_conf)
         I0 <- MH$I
         beta_start <- MH$beta_start
         accept <- MH$accept
-                                        # 如果I没有被接收，SGLD迭代次数为SGLD_iter_noVS；
-                                        # 如果I被接收，SGLD迭代次数为SGLD_iter
-                                        # 不做此步 ，可以注释掉if(){}
+        ## 如果I没有被接收，SGLD迭代次数为SGLD_iter_noVS；如果I被接收，SGLD迭代次数为
+        ## SGLD_iter不做此步 ，可以注释掉if(){}
         if(accept == 0) {iter = SGLD_iter_noVS}else{iter = SGLD_iter}
     }
     return(list(I = I, B = B, result_all = result_all, acceptance = accept_num/VS_iter))
@@ -211,59 +215,6 @@ MH_step <- function(x, beta0, data, logp = log_posterior,
         accept <- 0
     }
     return(list(I = x, beta_start = beta_start, accept = accept))
-}
-
-#' Simple algorithm to optimize model parameters.
-#'
-#' This can be used as initial values in MCMC or just for simple optimizations
-#' @title
-#' @param lpd_features
-#' @param features_y
-#' @return
-#' @author Feng Li
-optim_beta <- function(data) {
-    y_lpd <- data$lpd
-
-    prob <- exp(y_lpd)
-    prob[prob == 0] <- 1e-323
-
-    num_models <- length(lpd_features$lpd[1,])
-
-    ini <-  t(data.matrix(rep(0, num_models-1)))
-
-
-
-    w_max <- try(optim(
-        par = ini,
-        fn = logscore,
-        ## gr = gradient,
-        features = features_y,
-        prob = prob,
-        ## intercept = intercept,
-        intercept = TRUE,
-        method = "L-BFGS-B",
-        ## method = "BFGS",
-        control = list(fnscale = -1)
-    )
-    )
-
-    if (w_max$convergence != 0) {
-        w_max <- try(optim(
-            par = ini,
-            fn = logscore,
-            ## gr = gradient,
-            features = features_y,
-            prob = prob,
-            ## intercept = intercept,
-            intercept = TRUE,
-            ## method = "L-BFGS-B",
-            method = "BFGS",
-            control = list(fnscale = -1)
-        )
-        )
-    }
-    beta_optim <- w_max$par
-    return(list(beta_optim = beta_optim, logscore = w_max$value))
 }
 
 proposal_I <- function(n){
