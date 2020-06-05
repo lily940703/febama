@@ -113,15 +113,9 @@ for (i in 1:length(lpd_features)) {
 
 ## Algorithm
 i_ts = 1
-SGLD_VS(data = lpd_features[[i_ts]], model_conf = model_conf)
+febama_mcmc(data = lpd_features[[i_ts]], model_conf = model_conf)
 
 stop("Testing ends here!")
-
-SGLD_VS <- foreach(i_ts = 1:length(lpd_features)) %dopar%
-    SGLD_VS (data = lpd_features[[i_ts]], logLik = logscore,
-             logLik_grad = logscore_grad, prior = prior, stepsize = 0.1,
-             SGLD_iter = 500, SGLD_iter_noVS = 50, VS_iter = 100,
-             minibatchSize = NULL, sig = 10)
 
 beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
     beta_prepare(SGLD_VS[[i_ts]])

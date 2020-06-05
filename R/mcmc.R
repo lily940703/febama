@@ -1,4 +1,4 @@
-SGLD_VS <- function(data, model_conf)
+febama_mcmc <- function(data, model_conf)
 {
     ## Extract arguments
     algArgs = model_conf$algArgs
@@ -69,7 +69,7 @@ SGLD_VS <- function(data, model_conf)
 }
 
 
-SGLD_gibbs <- function(data, logLik, logLik_grad, prior, beta, beta_idx, model_conf)
+SGLD_gibbs <- function(data, beta, betaIdx, model_conf)
 {
     beta_all <- start
 
