@@ -24,6 +24,26 @@ log_posterior <- function(data, beta, betaIdx, priArgs, varSelArgs, features_use
     return(out)
 }
 
+log_posterior_grad <- function(data, beta, betaIdx, priArgs, varSelArgs, features_used, model_update = 1:length(betaIdx))
+{
+    ## log prior with conditional
+    lpri_grad = log_priors_grad(beta = beta[model_update],
+                                betaIdx = betaIdx[model_update],
+                                varSelArgs = varSelArgs[model_update],
+                                priArgs = priArgs[model_update])
+
+    ## log score (log likelihood)
+    lscore_grad <- logscore_grad(data = data,
+                                 beta = beta,
+                                 betaIdx = betaIdx,
+                                 features_used = features_used,
+                                 model_update = model_update)
+
+    out <- mapply("+",lscore_grad,lpri_grad, SIMPLIFY = FALSE)
+    return(out)
+}
+
+
 betaVec2Lst = function(beta, betaIdx)
 {
     beta_list = list()

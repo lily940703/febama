@@ -17,7 +17,7 @@ logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
     prob = exp(data$lpd)
     prob[prob == 0] <- 1e-16
 
-    num_models_updated <- length(beta)
+    num_models_updated <- length(betaIdx)
     nObs = nrow(prob)
 
     exp_lin = matrix(NA, nObs, num_models_updated + 1)
@@ -60,29 +60,45 @@ logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
 #' @param modelcaller which model components should be considered?
 #' @return p-by-length(modelcaller) matrix for the gradient.
 #' @author Feng Li
-logscore_grad <- function(data, beta, betaIdx, features_used, modelcaller)
+logscore_grad <- function(data, beta, betaIdx, features_used, model_update = 1:length(betaIdx))
 {
-  if(is.null(betaIdx)){
-      features0<-NULL
-      intercept = TRUE
-  }else{
-    features0<-data.matrix(features[,betaIdx])
-  }
-  if(intercept) features0 = cbind(rep(1, nrow(prob)), features0)
 
-  me <- features0 %*% beta # T-by-(n-1)
-  me[me>709] <- 709 # avoid overflow
+    prob = exp(data$lpd)
+    prob[prob == 0] <- 1e-16
 
-  ex_lin = exp(me) # T-by-(n-1)
+    num_models_updated <- ncol(prob) - 1
+    nObs = nrow(prob)
 
-  ex_sum = rowSums(ex_lin) + 1 # length-T vector
-  ex_p_sum = rowSums(cbind(exp_lin, 1) * prob) # T-by-1
+    exp_lin = matrix(NA, nObs, num_models_updated + 1)
+    exp_lin[, num_models_updated + 1] = 1 # assume last model is 1
 
-  ## The vectorized version
-  grad0 = exp_lin[, modelcaller] * (prob[, modelcaller] * ex_sum -
-                                    ex_p_sum) / (ex_sum * ex_p_sum) # T-by-ncol(modelcaller)
+    for(model_i in 1:num_models_updated)
+    {
+        betaCurr = beta[[model_i]]
+        betaIdxCurr = betaIdx[[model_i]]
+        features_used_curr = features_used[[model_i]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
 
-  out = apply(grad0, 2, function(x, y) colSums(x*y),y = features0)
+        me <- features0[, betaIdxCurr == 1, drop = FALSE] %*% matrix(betaCurr[betaIdxCurr == 1])
+        me[me>709] <- 709 # avoid overflow
+        exp_lin[, model_i] = exp(me)
+    }
 
-  return(out)
+    exp_sum = rowSums(exp_lin) # length-T vector
+    exp_p_sum = rowSums(exp_lin * prob) # T-by-1
+
+    ## The gradient wrt me=x'beta
+    grad0 = exp_lin[, model_update, drop = FALSE] * (prob[, model_update, drop = FALSE] * exp_sum -
+                                      exp_p_sum) / (exp_sum * exp_p_sum) # T-by-length(model_caller)
+
+    ## The gradient wrt beta
+    out = list()
+    for(model_i in 1:length(model_update))
+    {
+        features_used_curr = features_used[[model_i]]
+        betaIdxCurr = betaIdx[[model_i]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
+        out[[model_i]] = colSums(grad0[, model_i] * features0[, betaIdxCurr == 1, drop = FALSE])
+    }
+    return(out)
 }

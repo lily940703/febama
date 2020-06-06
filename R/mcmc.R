@@ -54,7 +54,6 @@ febama_mcmc <- function(data, model_conf)
 
     SGLD_gibbs(data = data,  beta_curr = beta_curr, betaIdx_curr = betaIdx_curr)
 
-
     for (i in 1:nVSIter)
     {
         res_SGLD <- SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
