@@ -70,11 +70,7 @@ febama_mcmc <- function(data, model_conf)
 }
 
 
-<<<<<<< HEAD
-SGLD_gibbs <- function(data, beta_start, betaIdx_start, model_conf)
-=======
 SGLD_gibbs <- function(data, OUT, model_conf)
->>>>>>> 40c03be... update gradient for priors
 {
     nIter = model_conf$algArgs$nIter
     sgldArgs = model_conf$algArgs$sgld
@@ -109,86 +105,6 @@ SGLD_gibbs <- function(data, OUT, model_conf)
 
             if(iIter in VS_interval)
             {
-
-<<<<<<< HEAD
-    ## Optimize to have good initial values
-    ## w_max <- try(optim(
-    ##     par = ini,
-    ##     fn = log_posterior,
-    ##     features = features_y,
-    ##     prob = prob,
-    ##     ## intercept = intercept,
-    ##     intercept = TRUE,
-    ##     method = "L-BFGS-B",
-    ##     ## method = "BFGS",
-    ##     control = list(fnscale = -1)
-    ## ))
-
-
-
-    res <- list()
-    for (i in 1:(num_models-1)) {
-
-        browser()
-
-        logpost0 <- log_posterior (data, beta_all, I, prior = prior,
-                                   logLik = logscore, sig = sig)
-        res0 <- list(beta = beta_all[,i], logscore = logLik0, logpost = logpost0,
-                     stepsize = NA, prior = prior0)
-
-        if(iter != 0){
-            for (t in 1:iter ) {
-
-                beta <- beta_all[,i]
-                mini <- sample(1:length(prob[,1]),
-                               ceiling(minibatchSize*length(prob[,1])))
-                prob1 <- prob[mini,]
-                features1 <- features[mini,]
-
-                if(is.null(stepsize)){
-                    stepsize1 <- a * (b + t) ^ (-gama)
-                }else{
-                    stepsize1 <- stepsize
-                }
-
-                prior1 <- prior(beta_all, I, sig = sig)
-
-                beta <- (beta + stepsize1 * (gradient_prior(beta_all, I, sig)[,i]/ prior1)
-                    + stepsize1 * (1/minibatchSize)
-                    * logLik_grad(beta = beta_all, features = features1,
-                                  features_select = features_select,
-                                  prob= prob1, intercept= intercept)[,i]
-                    + rmvnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
-                )
-                beta_all[,i] <- beta
-
-                prior1 <- prior(beta_all, I, sig = sig)
-                logLik1 <- logLik (beta = beta_all, features = features, features_select = features_select,
-                                   prob = prob, intercept = intercept)
-                logpost1 <- log_posterior (data, beta_all, I, prior = prior,
-                                           logLik = logscore, sig = sig)
-                res0$beta <- cbind(res0$beta, beta)
-                res0$logscore <- c(res0$logscore, logLik1)
-                res0$logpost <- c(res0$logpost, logpost1)
-                res0$stepsize <- c(res0$stepsize, stepsize1)
-                res0$prior <- c(res0$prior, prior1)
-
-                                        # 完成iter次SGLD后，对于每个β，取后10%样本的均值
-                                        # 若注释掉if{}， beta_out为每个β的最后一个样本组成的矩阵
-
-                if(t == iter){
-                    if(iter < 10) {ind = 1:(iter+1)} else {
-                                                       ind =( iter + 1 - floor(0.1 * iter)): (iter+1)}
-                    if(dim(res0$beta)[1] == 1){
-                        beta_mean <- mean(res0$beta[, ind])
-
-                    }else{
-                        beta_mean <- rowMeans(res0$beta[, ind])
-                    }
-                    beta_all[,i] <- beta_mean
-                }
-=======
->>>>>>> 40c03be... update gradient for priors
             }
         }
 
