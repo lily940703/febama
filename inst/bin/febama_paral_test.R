@@ -53,9 +53,9 @@ model_conf = list(
                    gibbs_nIter = 20, # number of iterations
                    "sgld" = list(stepsize = NULL,
                                  tol = 1e-5,
-                                 batchesize = 64,
-                                 nIter = 100,
-                                 sig = 10,
+                                 max_batcheSize = 64,
+                                 nEpoch = 3,
+                                 burninProp = 0.4 # burnin proportion within each SGLD.
                                  gama = 0.55,
                                  a = 0.4,
                                  b = 10)

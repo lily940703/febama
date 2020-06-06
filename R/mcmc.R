@@ -71,30 +71,30 @@ febama_mcmc <- function(data, model_conf)
 
 SGLD_gibbs <- function(data, OUT, model_conf)
 {
-    nIter = model_conf$algArgs$sgld$nIter
-    sgldArgs = model_conf$algArgs$sgld
+    nEpoch = model_conf$algArgs$sgld$nEpoch
+    burninProp = model_conf$algArgs$sgld$burninProp
 
-    num_models_updated = length(beta_curr)
+    max_batchsize = model_conf$algArgs$sgld$max_batchsize
+    batchsize = min(nObs, max_batchsize)
+    nBatch = round(nObs/batchsize)
 
+    num_models_updated = ncol(data$lpd) - 1
     nObs = nrow(data$lpd)
-
-    batchsize = model_conf$batchsize
-    if(nObs < batchsize)
-    {
-        batchsize = nObs
-        message("nObs(", nObs, ") < batchsize, use the full data instead.")
-    }
-    nEpoch = ceiling(nObs/batchsize)
-
 
     for (model_i in 1:num_models_updated)
     {
-        ## Update beta conditional on variable selections
-        for (iIter in 2:nIter)
-        {
-            beta_model_i <- OUT[["beta"]][[model_i]][iIter - 1, ]
-            betaIdx_model_i <- OUT[["betaIdx"]][[model_i]][iIter - 1, ]
+        ## 1. propose an update of variable selection indicators
+        betaIdx_model_i <- OUT[["betaIdx"]][[model_i]][iIter - 1, ]
+        nPar = length(betaIdx_model_i)
 
+        betaIdx_prop = c(1, rbinom(nPar - 1, 1, prob = 0.5))
+
+        ## 2. conditional on this variable selection indicators, update beta via SGLD
+        beta_sgld = matrix(0, nEpoch * nBatch, nPar)
+        beta_sgld[1, ] = beta_model_i
+
+        for (iIter in 2:(nEpoch * nBatch))
+        {
             ## SGLD settings
             if(is.null(stepsize)){
                 stepsize1 <- a * (b + t) ^ (-gama)
@@ -103,10 +103,10 @@ SGLD_gibbs <- function(data, OUT, model_conf)
             }
 
             ## Re-split the data into small batches after finish one complete epoch.
-            if(iIter in seq(2, nIter, nObs))
+            if(iIter in seq(2, nEpoch * nBatch, nObs))
             {
                 batchIdx = 0
-                dataIdxLst = split(sample(1:nObs,nObs),1:nEpoch)
+                dataIdxLst = split(sample(1:nObs,nObs),1:nBatch)
             }
             batchIdx = batchIdx + 1
 
@@ -120,67 +120,59 @@ SGLD_gibbs <- function(data, OUT, model_conf)
                                               varSelArgs = varSelArgs,
                                               features_used = features_used,
                                               model_update = model_conf$features_used,
-                                              batchRatio = batchRatio)
+                                              batchRatio = batchRatio)[[1]]
 
             ## SGLD
-            beta_model_i<- (beta_model_i + stepsize0 / 2 * grad_model_i +
-                            rmvnorm(1, rep(0,length(beta)), stepsize0* diag(length(beta_model_i))))
-
-
-
-            OUT[["beta"]][[model_i]][iIter, ] = beta_model_i
+            beta_sgld[iIter, ] <- (beta_model_i + stepsize0 / 2 * grad_model_i +
+                                   rmvnorm(1, rep(0,length(beta)), stepsize0* diag(length(beta_model_i))))
         }
 
+        ## Polyak-ruppert averaging
+        burnin = 1:(ceiling(burninProp * nIter))
+        beta_prop = colMeans(beta_prop[-burnin, ])
+
+        ## Metropolis-Hasting accept/reject
+        logpost_prop = log_posterior(data = data,
+                                     beta = beta_prop,
+                                     betaIdx = betaIdx_prop,
+                                     priArgs = priArgs,
+                                     varSelArgs = varSelArgs,
+                                     features_used = features_used)
+        logpost_curr = log_posterior(data = data,
+                                     beta = beta_curr,
+                                     betaIdx = betaIdx_curr,
+                                     priArgs = priArgs,
+                                     varSelArgs = varSelArgs,
+                                     features_used = features_used)
 
 
+
+        logMHRatio <- (logPost.prop - logPost.curr +
+                       logJump.currATpropRev - logJump.propATprop +
+                       logJump.Idx.currATprop - logJump.Idx.propATcurr)
+
+
+        if(is.na(logMHRatio))
+        { ## bad proposal, i.e logJump.currATpropRev = -Inf, or logJump.propATprop = -Inf
+            accept.prob.curr <- 0
+        }
+        else
+        {
+            accept.prob.curr <- exp(min(0, logMHRatio))
+        }
+
+        if(runif(1) < accept.prob.curr) #!is.na(accept.prob.curr)
+        {
+            ## keep the proposal
+            betaIdx.curr <- betaIdx.prop
+            beta.curr <- beta.prop
+
+        }
+        else
+        { ## keep the current
+            betaIdx.prop <- betaIdx.curr
+        }
 
     }
-
     return(out)
-}
-
-MH_step <- function(x, beta0, data, logp = log_posterior,
-                    proposal = proposal_I, sig = 10){
-    beta_start <- beta0
-    rownames(beta_start) <- c("0", which(x == 1))
-    xp <- proposal(length(x))
-    beta1 <- matrix(NA, nrow = (length(which(xp == 1)) + 1),
-                    ncol = dim(beta_start)[2])
-    rownames(beta1) <- c("0", which(xp == 1))
-    ind <- c("0", which(x==xp & xp==1))
-    beta1[ind, ] <- beta_start[ind, ]
-    beta1[is.na(beta1)] <-0
-    alpha <- min(1, exp(logp(data, beta = beta1, I = xp, prior = prior,
-                             logLik = logscore, sig = sig) -
-                        logp(data, beta = beta_start, I = x, prior = prior,
-                             logLik = logscore, sig = sig)))
-    if (runif(1) < alpha){
-        accept <- 1
-        x <- xp
-        beta_start <- beta1
-    }else{
-        accept <- 0
-    }
-    return(list(I = x, beta_start = beta_start, accept = accept))
-}
-
-proposal_I <- function(n){
-    repeat{
-        I <- rbinom(n, 1, 0.5)
-        if(sum(I != 0) != 0){
-            break
-        }
-    }
-    return(I)
-}
-
-beta_prepare <- function(res_SGLD_VS){
-    beta_pre0 <-list()
-    beta_pre <-list()
-    for (i in 1 : length(res_SGLD_VS$B)) {
-        beta_pre$beta <- res_SGLD_VS$B[[i]]
-        beta_pre$features_select <- as.numeric(rownames(res_SGLD_VS$B[[i]]))[-1]
-        beta_pre0[[i]] <- beta_pre
-    }
-    return(beta_pre0)
 }
