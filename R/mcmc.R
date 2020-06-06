@@ -50,13 +50,13 @@ febama_mcmc <- function(data, model_conf)
 
     ## Loop for SGLD and variable selection (periodically)
     n_VSIter = 10
+
+    SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
+               iter = iter, features_select = features_select, sig = sig)
+
+
     for (i in 1:nVSIter)
     {
-
-
-
-
-
         res_SGLD <- SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
                                iter = iter, features_select = features_select, sig = sig)
 
@@ -73,7 +73,7 @@ febama_mcmc <- function(data, model_conf)
 }
 
 
-SGLD_gibbs <- function(data, beta, betaIdx, model_conf)
+SGLD_gibbs <- function(data, beta_start, betaIdx_start, model_conf)
 {
     beta_all <- start
 
@@ -109,12 +109,6 @@ SGLD_gibbs <- function(data, beta, betaIdx, model_conf)
     for (i in 1:(num_models-1)) {
 
         browser()
-        prior0 <- log_priors(beta = beta_all, betaIdx = betaIdx, varSelArgs = model_conf$varSelArgs, priArgs = model_conf$priArgs, sum = TRUE)
-
-        logLik0 <- logscore (beta = beta_all, features = features,
-                           features_select = features_select,
-                           prob = prob, intercept = intercept,
-                           sum = TRUE)
 
         logpost0 <- log_posterior (data, beta_all, I, prior = prior,
                                    logLik = logscore, sig = sig)
