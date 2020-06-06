@@ -8,11 +8,12 @@ febama_mcmc <- function(data, model_conf)
     nIter = algArgs$nIter
 
     ## Reserve space for beta
-    OUT_beta_full = lapply(model_conf$features,
-                       function(x) matrix(nrow=nIter,ncol=length(x)+1))
+    OUT = list()
+    OUT[["beta"]] = lapply(model_conf$features,
+                           function(x) matrix(nrow=nIter,ncol=length(x)+1))
 
     ## Initialize variable selection indicators
-    OUT_betaIdx_full = mapply(function(x, y){
+    OUT[["betaIdx"]] = mapply(function(x, y){
         if(y$init == "all-in")
         {
             x[1, ] = 1
@@ -42,7 +43,7 @@ febama_mcmc <- function(data, model_conf)
     }
 
     ## Assign initial values (conditional of variable selections)
-    OUT_beta_full = mapply(function(x, y){
+    OUT[["beta"]] = mapply(function(x, y){
         x[1, ] = y
         return(x)
     }, x = OUT_beta_full, y = beta_curr, SIMPLIFY = FALSE)
@@ -51,17 +52,13 @@ febama_mcmc <- function(data, model_conf)
     ## Loop for SGLD and variable selection (periodically)
     n_VSIter = 10
 
-    SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
-               iter = iter, features_select = features_select, sig = sig)
+    SGLD_gibbs(data = data,  beta_curr = beta_curr, betaIdx_curr = betaIdx_curr)
 
 
     for (i in 1:nVSIter)
     {
         res_SGLD <- SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
                                iter = iter, features_select = features_select, sig = sig)
-
-        MH <- MH_step (x = I0, beta0 = B[[i]], data =data,
-                       logp = log_posterior, proposal = proposal_I)
         I0 <- MH$I
         beta_start <- MH$beta_start
         accept <- MH$accept
@@ -73,23 +70,47 @@ febama_mcmc <- function(data, model_conf)
 }
 
 
+<<<<<<< HEAD
 SGLD_gibbs <- function(data, beta_start, betaIdx_start, model_conf)
+=======
+SGLD_gibbs <- function(data, OUT, model_conf)
+>>>>>>> 40c03be... update gradient for priors
 {
-    beta_all <- start
+    nIter = model_conf$algArgs$nIter
+    sgldArgs = model_conf$algArgs$sgld
 
-    prob <- exp(data$lpd)
-    prob[prob == 0] <- 1e-323
-    num_models <- dim(prob)[2]
-    features <- data$feat
+    num_models_updated = length(beta_curr)
 
-    betaIdx = I
+    for (model_i in 1:num_models_updated)
+    {
+        for (iIter in 2:nIter)
+        {
+            beta_model_i <- OUT[["beta"]][[model_i]][iIter - 1, ]
+            betaIdx_model_i <- OUT[["betaIdx"]][[model_i]][iIter - 1, ]
 
-    if (length(prob[,1]) <= 64){
-        minibatchSize = 1
-    }else {
-        minibatchSize = 0.1
-    }
+            ## SGLD settings
+            if(is.null(stepsize)){
+                stepsize1 <- a * (b + t) ^ (-gama)
+            }else{
+                stepsize1 <- stepsize
+            }
 
+            stepsize = 0.1
+
+            ## SGLD
+            beta_model_i_new <- beta_model_i + stepsize1 * (gradient_prior(beta_all, I, sig)[,i]/ prior1)
+                + stepsize1 * (1/minibatchSize)
+                * log_posterior_grad(beta = beta_all, features = features1,
+                                     features_select = features_select,
+                                     prob= prob1, intercept= intercept)[,i]
+
+                + rmvnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
+
+
+            if(iIter in VS_interval)
+            {
+
+<<<<<<< HEAD
     ## Optimize to have good initial values
     ## w_max <- try(optim(
     ##     par = ini,
@@ -166,25 +187,16 @@ SGLD_gibbs <- function(data, beta_start, betaIdx_start, model_conf)
                     }
                     beta_all[,i] <- beta_mean
                 }
+=======
+>>>>>>> 40c03be... update gradient for priors
             }
         }
+
         res[[i]] <- res0
     }
-    results <- list(beta=list(), logscore = matrix(ncol = iter+1, nrow = num_models-1),
-                    logpost = matrix(ncol = iter+1, nrow = num_models-1),
-                    stepsize = matrix(ncol = iter+1, nrow = num_models-1),
-                    prior = matrix(ncol = iter+1, nrow = num_models-1),
-                    beta_out = beta_all)
-    for (j in 1:(num_models-1)) {
-        results$beta[[j]] <- res[[j]]$beta
-        results$logscore[j,] <-res[[j]]$logscore
-        results$logpost[j,] <-res[[j]]$logpost
-        results$stepsize[j,] <-res[[j]]$stepsize
-        results$prior[j,] <-res[[j]]$prior
-    }
-    return(results)
-}
 
+    return(out)
+}
 
 MH_step <- function(x, beta0, data, logp = log_posterior,
                     proposal = proposal_I, sig = 10){

@@ -60,8 +60,7 @@ logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
 #' @param modelcaller which model components should be considered?
 #' @return p-by-length(modelcaller) matrix for the gradient.
 #' @author Feng Li
-logscore_grad <- function(beta, features, betaIdx = ncol(features), prob,
-                           intercept, modelcaller)
+logscore_grad <- function(data, beta, betaIdx, features_used, modelcaller)
 {
   if(is.null(betaIdx)){
       features0<-NULL
