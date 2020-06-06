@@ -185,8 +185,8 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
             ## density See Mardia p. 63
 
             ## Split the beta vector by selected and non-selected.
-            Idx1 <- which(betaIdxCurr == TRUE)
-            Idx0 <- which(betaIdxCurr == FALSE)
+            Idx1 <- which(betaIdxCurr == 1)
+            Idx0 <- which(betaIdxCurr == 0)
 
             Idx0Len <- length(Idx0)
             Idx1Len <- length(Idx1)
@@ -217,7 +217,7 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
                 condCovar <- coVar[Idx1, Idx1] - A%*%coVar[Idx0, Idx1]
                 coVarInv = solve(condCovar)
 
-                out[[model_i]] <- -coVarInv %*% matrix(betaCurr[Idx1]-mean[Idx1])
+                out[[model_i]] <- -coVarInv %*% matrix(betaCurr[Idx1]-meanVec[Idx1])
             }
         }
         else

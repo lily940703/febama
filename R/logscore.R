@@ -93,12 +93,14 @@ logscore_grad <- function(data, beta, betaIdx, features_used, model_update = 1:l
 
     ## The gradient wrt beta
     out = list()
-    for(model_i in 1:length(model_update))
+    model_idx = 0
+    for(model_i in model_update)
     {
+        model_idx = model_idx + 1
         features_used_curr = features_used[[model_i]]
         betaIdxCurr = betaIdx[[model_i]]
         features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
-        out[[model_i]] = colSums(grad0[, model_i] * features0[, betaIdxCurr == 1, drop = FALSE])
+        out[[model_idx]] = colSums(grad0[, model_idx] * features0[, betaIdxCurr == 1, drop = FALSE])
     }
     return(out)
 }

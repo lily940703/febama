@@ -24,7 +24,8 @@ log_posterior <- function(data, beta, betaIdx, priArgs, varSelArgs, features_use
     return(out)
 }
 
-log_posterior_grad <- function(data, beta, betaIdx, priArgs, varSelArgs, features_used, model_update = 1:length(betaIdx), batchRatio = 1)
+log_posterior_grad <- function(data, beta, betaIdx, priArgs, varSelArgs, features_used,
+                               model_update = 1:length(betaIdx), batchRatio = 1)
 {
     ## log prior with conditional
     lpri_grad = log_priors_grad(beta = beta[model_update],

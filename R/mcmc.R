@@ -49,34 +49,40 @@ febama_mcmc <- function(data, model_conf)
     }, x = OUT_beta_full, y = beta_curr, SIMPLIFY = FALSE)
 
 
-    ## Loop for SGLD and variable selection (periodically)
-    n_VSIter = 10
 
-    SGLD_gibbs(data = data,  beta_curr = beta_curr, betaIdx_curr = betaIdx_curr)
-
-    for (i in 1:nVSIter)
+    for (i in 1:nIter)
     {
-        res_SGLD <- SGLD_gibbs(data = data,  beta = beta_start, betaIdx = betaIdx_start,
-                               iter = iter, features_select = features_select, sig = sig)
-        I0 <- MH$I
-        beta_start <- MH$beta_start
-        accept <- MH$accept
-        ## 如果I没有被接收，SGLD迭代次数为SGLD_iter_noVS；如果I被接收，SGLD迭代次数为
-        ## SGLD_iter不做此步 ，可以注释掉if(){}
-        if(accept == 0) {iter = SGLD_iter_noVS}else{iter = SGLD_iter}
+        beta_betaIdx <-  SGLD_gibbs(data = data,  beta_curr = beta_curr,
+                                    betaIdx_curr = betaIdx_curr, model_conf = model_conf)
+
+        beta_curr = beta_betaIdx[["beta"]]
+        betaIdx_curr = beta_betaIdx[["betaIdx"]]
+
+
+        OUT[["beta"]] = mapply(function(x, y){
+            x[i, ] = y
+            return(x)
+        }, x = OUT_beta_full, y = beta_betaIdx[["beta"]], SIMPLIFY = FALSE)
+
+        OUT[["betaIdx"]] = mapply(function(x, y){
+            x[i, ] = y
+            return(x)
+        }, x = OUT_beta_full, y = beta_betaIdx[["beta"]], SIMPLIFY = FALSE)
+
     }
-    return(list(I = I, B = B, result_all = result_all, acceptance = accept_num/VS_iter))
+
+    return(OUT)
 }
 
 
-SGLD_gibbs <- function(data, OUT, model_conf)
+SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 {
     nEpoch = model_conf$algArgs$sgld$nEpoch
     burninProp = model_conf$algArgs$sgld$burninProp
 
-    max_batchsize = model_conf$algArgs$sgld$max_batchsize
-    batchsize = min(nObs, max_batchsize)
-    nBatch = round(nObs/batchsize)
+    max_batchSize = model_conf$algArgs$sgld$max_batchSize
+    batchSize = min(nObs, max_batchSize)
+    nBatch = round(nObs/batchSize)
 
     num_models_updated = ncol(data$lpd) - 1
     nObs = nrow(data$lpd)
@@ -84,95 +90,111 @@ SGLD_gibbs <- function(data, OUT, model_conf)
     for (model_i in 1:num_models_updated)
     {
         ## 1. propose an update of variable selection indicators
-        betaIdx_model_i <- OUT[["betaIdx"]][[model_i]][iIter - 1, ]
+        betaIdx_model_i <- betaIdx_curr[[model_i]]
+        beta_model_i = beta_curr[[model_i]]
         nPar = length(betaIdx_model_i)
 
-        betaIdx_prop = c(1, rbinom(nPar - 1, 1, prob = 0.5))
+        betaIdx_prop = betaIdx_curr
+        betaIdx_prop[[model_i]] = c(1, rbinom(nPar - 1, 1, prob = 0.5))
 
         ## 2. conditional on this variable selection indicators, update beta via SGLD
-        beta_sgld = matrix(0, nEpoch * nBatch, nPar)
-        beta_sgld[1, ] = beta_model_i
+        beta_model_i_sgld = matrix(0, nEpoch * nBatch, nPar)
 
-        for (iIter in 2:(nEpoch * nBatch))
+        for (iIter in 1:(nEpoch * nBatch))
         {
             ## SGLD settings
-            if(is.null(stepsize)){
-                stepsize1 <- a * (b + t) ^ (-gama)
-            }else{
-                stepsize1 <- stepsize
+            if(is.na(stepsize)){ # decay stepsize
+                a = model_conf$algArgs$sgld$a
+                b = model_conf$algArgs$sgld$b
+                gama = model_conf$algArgs$sgld$gama
+                stepsize <- a * (b + iIter) ^ (-gama)
             }
 
             ## Re-split the data into small batches after finish one complete epoch.
-            if(iIter in seq(2, nEpoch * nBatch, nObs))
+            if(iIter %in% seq(1, nEpoch * nBatch, nBatch))
             {
-                batchIdx = 0
+                iBatch = 0
                 dataIdxLst = split(sample(1:nObs,nObs),1:nBatch)
             }
-            batchIdx = batchIdx + 1
+            iBatch = iBatch + 1
 
-            data_model_i = lapply(data[c("lpd","feat")], function(x) x[dataIdxLst[[batchIdx]], ,drop=FALSE])
-            batchRatio = length(dataIdxLst[[batchIdx]]) / nObs
+            data_curr = lapply(data[c("lpd","feat")], function(x) x[dataIdxLst[[iBatch]], ,drop=FALSE])
+            batchRatio = length(dataIdxLst[[iBatch]]) / nObs # n/N
 
-            grad_model_i = log_posterior_grad(data = data_model_i,
-                                              beta_curr = beta_model_i,
-                                              betaIdx_curr = betaIdx_model_i,
+            grad_model_i = log_posterior_grad(data = data_curr,
+                                              beta = beta_curr,
+                                              betaIdx = betaIdx_prop,
                                               priArgs = priArgs,
                                               varSelArgs = varSelArgs,
                                               features_used = features_used,
-                                              model_update = model_conf$features_used,
+                                              model_update = model_i,
                                               batchRatio = batchRatio)[[1]]
 
             ## SGLD
-            beta_sgld[iIter, ] <- (beta_model_i + stepsize0 / 2 * grad_model_i +
-                                   rmvnorm(1, rep(0,length(beta)), stepsize0* diag(length(beta_model_i))))
+            nPar_new = sum(betaIdx_prop[[model_i]])
+
+            beta_new <- (as.vector(beta_model_i[betaIdx_prop[[model_i]] == 1] + stepsize / 2 * grad_model_i) +
+                         as.vector(rmvnorm(1, rep(0, nPar_new), stepsize* diag(nPar_new))))
+
+            beta_model_i_sgld[iIter, betaIdx_prop[[model_i]] == 1] = beta_new
+
+            beta_curr[[model_i]][betaIdx_prop[[model_i]] == 1] = beta_new
+            beta_curr[[model_i]][betaIdx_prop[[model_i]] == 0] = 0
+
         }
 
         ## Polyak-ruppert averaging
-        burnin = 1:(ceiling(burninProp * nIter))
-        beta_prop = colMeans(beta_prop[-burnin, ])
+        burnin = 1:(ceiling(burninProp * nEpoch * nBatch))
+
+        beta_prop = beta_curr
+        beta_prop[[model_i]] = colMeans(beta_model_i_sgld[-burnin, ])
 
         ## Metropolis-Hasting accept/reject
-        logpost_prop = log_posterior(data = data,
-                                     beta = beta_prop,
-                                     betaIdx = betaIdx_prop,
-                                     priArgs = priArgs,
-                                     varSelArgs = varSelArgs,
-                                     features_used = features_used)
-        logpost_curr = log_posterior(data = data,
-                                     beta = beta_curr,
-                                     betaIdx = betaIdx_curr,
-                                     priArgs = priArgs,
-                                     varSelArgs = varSelArgs,
-                                     features_used = features_used)
+        log_post_prop = log_posterior(data = data,
+                                      beta = beta_prop,
+                                      betaIdx = betaIdx_prop,
+                                      priArgs = priArgs,
+                                      varSelArgs = varSelArgs,
+                                      features_used = features_used,
+                                      model_update = model_i)
+        log_post_curr = log_posterior(data = data,
+                                      beta = beta_curr,
+                                      betaIdx = betaIdx_curr,
+                                      priArgs = priArgs,
+                                      varSelArgs = varSelArgs,
+                                      features_used = features_used,
+                                      model_update = model_i)
 
 
+        ## The jump density for the variable selection indicators. TODO: Add adaptive scheme
+        logJump.Idx.currATprop <- 1
+        logJump.Idx.propATcurr <- 1
 
-        logMHRatio <- (logPost.prop - logPost.curr +
-                       logJump.currATpropRev - logJump.propATprop +
+        logMHRatio <- (log_post_prop - log_post_curr +
                        logJump.Idx.currATprop - logJump.Idx.propATcurr)
 
 
         if(is.na(logMHRatio))
         { ## bad proposal, i.e logJump.currATpropRev = -Inf, or logJump.propATprop = -Inf
-            accept.prob.curr <- 0
+            accept_prob_curr <- 0
         }
         else
         {
-            accept.prob.curr <- exp(min(0, logMHRatio))
+            accept_prob_curr <- exp(min(0, logMHRatio))
         }
 
-        if(runif(1) < accept.prob.curr) #!is.na(accept.prob.curr)
-        {
-            ## keep the proposal
-            betaIdx.curr <- betaIdx.prop
-            beta.curr <- beta.prop
-
+        if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
+        {  ## keep the proposal
+            beta_curr <- beta_prop
+            betaIdx_curr <- betaIdx_prop
         }
         else
         { ## keep the current
-            betaIdx.prop <- betaIdx.curr
         }
 
     }
+
+    out = list(beta = beta_curr, betaIdx = betaIdx_curr)
+
     return(out)
 }
