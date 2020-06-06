@@ -50,10 +50,11 @@ model_conf = list(
                             "betaIdx" = list(type = "beta", alpha0 = 1, beta0 = 1))), num_models - 1)
   , algArgs = list(initOptim = TRUE, # Use LBFGS to optimize initial values
                    algName = "sgld", # could be NA, results are only based on optimization.
-                   nIter = 20, # number of iterations
+                   gibbs_nIter = 20, # number of iterations
                    "sgld" = list(stepsize = NULL,
                                  tol = 1e-5,
-                                 samplesize = 0.1,
+                                 batchesize = 64,
+                                 nIter = 100,
                                  sig = 10,
                                  gama = 0.55,
                                  a = 0.4,

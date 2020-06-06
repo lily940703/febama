@@ -71,13 +71,25 @@ febama_mcmc <- function(data, model_conf)
 
 SGLD_gibbs <- function(data, OUT, model_conf)
 {
-    nIter = model_conf$algArgs$nIter
+    nIter = model_conf$algArgs$sgld$nIter
     sgldArgs = model_conf$algArgs$sgld
 
     num_models_updated = length(beta_curr)
 
+    nObs = nrow(data$lpd)
+
+    batchsize = model_conf$batchsize
+    if(nObs < batchsize)
+    {
+        batchsize = nObs
+        message("nObs(", nObs, ") < batchsize, use the full data instead.")
+    }
+    nEpoch = ceiling(nObs/batchsize)
+
+
     for (model_i in 1:num_models_updated)
     {
+        ## Update beta conditional on variable selections
         for (iIter in 2:nIter)
         {
             beta_model_i <- OUT[["beta"]][[model_i]][iIter - 1, ]
@@ -90,24 +102,38 @@ SGLD_gibbs <- function(data, OUT, model_conf)
                 stepsize1 <- stepsize
             }
 
-            stepsize = 0.1
+            ## Re-split the data into small batches after finish one complete epoch.
+            if(iIter in seq(2, nIter, nObs))
+            {
+                batchIdx = 0
+                dataIdxLst = split(sample(1:nObs,nObs),1:nEpoch)
+            }
+            batchIdx = batchIdx + 1
+
+            data_model_i = lapply(data[c("lpd","feat")], function(x) x[dataIdxLst[[batchIdx]], ,drop=FALSE])
+            batchRatio = length(dataIdxLst[[batchIdx]]) / nObs
+
+            grad_model_i = log_posterior_grad(data = data_model_i,
+                                              beta_curr = beta_model_i,
+                                              betaIdx_curr = betaIdx_model_i,
+                                              priArgs = priArgs,
+                                              varSelArgs = varSelArgs,
+                                              features_used = features_used,
+                                              model_update = model_conf$features_used,
+                                              batchRatio = batchRatio)
 
             ## SGLD
-            beta_model_i_new <- beta_model_i + stepsize1 * (gradient_prior(beta_all, I, sig)[,i]/ prior1)
-                + stepsize1 * (1/minibatchSize)
-                * log_posterior_grad(beta = beta_all, features = features1,
-                                     features_select = features_select,
-                                     prob= prob1, intercept= intercept)[,i]
-
-                + rmvnorm(1, rep(0,length(beta)), 2*stepsize1* diag(length(beta)))
+            beta_model_i<- (beta_model_i + stepsize0 / 2 * grad_model_i +
+                            rmvnorm(1, rep(0,length(beta)), stepsize0* diag(length(beta_model_i))))
 
 
-            if(iIter in VS_interval)
-            {
-            }
+
+            OUT[["beta"]][[model_i]][iIter, ] = beta_model_i
         }
 
-        res[[i]] <- res0
+
+
+
     }
 
     return(out)
