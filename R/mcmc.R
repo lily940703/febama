@@ -95,7 +95,12 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
         nPar = length(betaIdx_model_i)
 
         betaIdx_prop = betaIdx_curr
-        betaIdx_prop[[model_i]] = c(1, rbinom(nPar - 1, 1, prob = 0.5))
+
+        ## Random proposal when variable selection is enabled: NOT NULL.
+        if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
+        {
+            betaIdx_prop[[model_i]] = c(1, rbinom(nPar - 1, 1, prob = 0.5))
+        }
 
         ## 2. conditional on this variable selection indicators, update beta via SGLD
         beta_model_i_sgld = matrix(0, nEpoch * nBatch, nPar)
@@ -149,47 +154,50 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
         beta_prop = beta_curr
         beta_prop[[model_i]] = colMeans(beta_model_i_sgld[-burnin, ])
 
-        ## Metropolis-Hasting accept/reject
-        log_post_prop = log_posterior(data = data,
-                                      beta = beta_prop,
-                                      betaIdx = betaIdx_prop,
-                                      priArgs = priArgs,
-                                      varSelArgs = varSelArgs,
-                                      features_used = features_used,
-                                      model_update = model_i)
-        log_post_curr = log_posterior(data = data,
-                                      beta = beta_curr,
-                                      betaIdx = betaIdx_curr,
-                                      priArgs = priArgs,
-                                      varSelArgs = varSelArgs,
-                                      features_used = features_used,
-                                      model_update = model_i)
-
-
-        ## The jump density for the variable selection indicators. TODO: Add adaptive scheme
-        logJump.Idx.currATprop <- 1
-        logJump.Idx.propATcurr <- 1
-
-        logMHRatio <- (log_post_prop - log_post_curr +
-                       logJump.Idx.currATprop - logJump.Idx.propATcurr)
-
-
-        if(is.na(logMHRatio))
-        { ## bad proposal, i.e logJump.currATpropRev = -Inf, or logJump.propATprop = -Inf
-            accept_prob_curr <- 0
-        }
-        else
+        ## Metropolis-Hasting accept/reject for variable selection
+        if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
         {
-            accept_prob_curr <- exp(min(0, logMHRatio))
-        }
+            log_post_prop = log_posterior(data = data,
+                                          beta = beta_prop,
+                                          betaIdx = betaIdx_prop,
+                                          priArgs = priArgs,
+                                          varSelArgs = varSelArgs,
+                                          features_used = features_used,
+                                          model_update = model_i)
+            log_post_curr = log_posterior(data = data,
+                                          beta = beta_curr,
+                                          betaIdx = betaIdx_curr,
+                                          priArgs = priArgs,
+                                          varSelArgs = varSelArgs,
+                                          features_used = features_used,
+                                          model_update = model_i)
 
-        if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
-        {  ## keep the proposal
-            beta_curr <- beta_prop
-            betaIdx_curr <- betaIdx_prop
-        }
-        else
-        { ## keep the current
+
+            ## The jump density for the variable selection indicators. TODO: Add adaptive scheme
+            logJump.Idx.currATprop <- 1
+            logJump.Idx.propATcurr <- 1
+
+            logMHRatio <- (log_post_prop - log_post_curr +
+                           logJump.Idx.currATprop - logJump.Idx.propATcurr)
+
+
+            if(is.na(logMHRatio))
+            { ## bad proposal, i.e logJump.currATpropRev = -Inf, or logJump.propATprop = -Inf
+                accept_prob_curr <- 0
+            }
+            else
+            {
+                accept_prob_curr <- exp(min(0, logMHRatio))
+            }
+
+            if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
+            {  ## keep the proposal
+                beta_curr <- beta_prop
+                betaIdx_curr <- betaIdx_prop
+            }
+            else
+            { ## keep the current
+            }
         }
 
     }
