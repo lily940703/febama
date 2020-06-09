@@ -16,17 +16,17 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
     num_models_updated = length(beta)
     out = rapply(priArgs, function (x) 0, how="replace") # retain same out structure as priArgs.
 
-    for(model_i in 1:num_models_updated)
+    for(iComp in 1:num_models_updated)
     {
-        priArgsCurr <- priArgs[[model_i]]
-        betaCurr <- beta[[model_i]]
-        betaIdxCurr <- betaIdx[[model_i]] # p-by-1
+        priArgsCurr <- priArgs[[iComp]]
+        betaCurr <- beta[[iComp]]
+        betaIdxCurr <- betaIdx[[iComp]] # p-by-1
 
 ###----------------------------------------------------------------------------
 ### Prior for variable selection indicators
 ###----------------------------------------------------------------------------
         ## intercept as special case. The intercept should always be included.
-        varSelCand <- varSelArgs[[model_i]][["cand"]]
+        varSelCand <- varSelArgs[[iComp]][["cand"]]
 
         ## Variable section candidates checking. If (1) only intercept is in or (2)
         ## updating candidates is NULL, do not allow for variable selection. We do not
@@ -41,7 +41,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
             if(class(varSelCand) == "character" &&
                tolower(varSelCand) == "2:end")
             {
-                candIdx <- 2:length(beta[[model_i]])
+                candIdx <- 2:length(beta[[iComp]])
             }
             else
             {
@@ -72,7 +72,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
                             lbeta(alpha0, beta0))
             }
         }
-        out[[model_i]][["betaIdx"]] <- logDens
+        out[[iComp]][["betaIdx"]] <- logDens
 
 ###----------------------------------------------------------------------------
 ### Prior for coefficients
@@ -107,7 +107,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
                 stop("Not implemented.")
                 ## The covariance matrix for the whole beta vector
                 ## The covariance matrix for the whole beta vector
-                ## X <- X[[model_i]]
+                ## X <- X[[iComp]]
                 ## coVar0 <- qr.solve(crossprod(X))
                 ## coVar0Lst <- lapply(as.vector(rep(NA, nPar),"list"),
                 ##                     function(x) coVar0)
@@ -117,7 +117,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
             ## Calculate the log density
             if(Idx0Len == 0L)
             {   ## 1. all are selected or Switch to unconditional prior.
-                out[[model_i]][["beta"]] <- dmvnorm(matrix(betaCurr, nrow = 1), meanVec, coVar, log = TRUE)
+                out[[iComp]][["beta"]] <- dmvnorm(matrix(betaCurr, nrow = 1), meanVec, coVar, log = TRUE)
             }
             else
             {  ## 2. some are selected (at least the intercept is always selected ) Using the conditional prior
@@ -125,7 +125,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
                 condMean <- meanVec[Idx1] - A%*%meanVec[Idx0]
                 condCovar <- coVar[Idx1, Idx1] - A%*%coVar[Idx0, Idx1]
 
-                out[[model_i]][["beta"]] <- dmvnorm(matrix(betaCurr[Idx1], nrow = 1), condMean, condCovar, log = TRUE)
+                out[[iComp]][["beta"]] <- dmvnorm(matrix(betaCurr[Idx1], nrow = 1), condMean, condCovar, log = TRUE)
             }
         }
         else
@@ -161,14 +161,14 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
     num_models_updated = length(betaIdx)
     out = beta
 
-    for(model_i in 1:num_models_updated)
+    for(iComp in 1:num_models_updated)
     {
-        priArgsCurr <- priArgs[[model_i]]
-        betaCurr <- beta[[model_i]]
-        betaIdxCurr <- betaIdx[[model_i]] # p-by-1
+        priArgsCurr <- priArgs[[iComp]]
+        betaCurr <- beta[[iComp]]
+        betaIdxCurr <- betaIdx[[iComp]] # p-by-1
 
         ## intercept as special case. The intercept should always be included.
-        varSelCand <- varSelArgs[[model_i]][["cand"]]
+        varSelCand <- varSelArgs[[iComp]][["cand"]]
 
 ###----------------------------------------------------------------------------
 ### Prior for coefficients
@@ -207,7 +207,7 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
             if(Idx0Len == 0L)
             {   ## 1. all are selected or Switch to unconditional prior.
                 coVarInv = solve(coVar)
-                out[[model_i]] <- -coVarInv %*% (betaCurr - mean)
+                out[[iComp]] <- -coVarInv %*% (betaCurr - mean)
             }
             else
             {  ## 2. some are selected (at least the intercept is always selected ) Using
@@ -217,7 +217,7 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
                 condCovar <- coVar[Idx1, Idx1] - A%*%coVar[Idx0, Idx1]
                 coVarInv = solve(condCovar)
 
-                out[[model_i]] <- -coVarInv %*% matrix(betaCurr[Idx1]-meanVec[Idx1])
+                out[[iComp]] <- -coVarInv %*% matrix(betaCurr[Idx1]-meanVec[Idx1])
             }
         }
         else

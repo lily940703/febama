@@ -50,10 +50,10 @@ betaVec2Lst = function(beta, betaIdx)
 {
     beta_list = list()
     a = 1
-    for(model_i in 1:length(betaIdx))
+    for(iComp in 1:length(betaIdx))
     {
-        b = a + length(betaIdx[[model_i]]) - 1
-        beta_list[[model_i]] = beta[a:b]
+        b = a + length(betaIdx[[iComp]]) - 1
+        beta_list[[iComp]] = beta[a:b]
         a = b + 1
     }
 

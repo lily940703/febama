@@ -10,31 +10,31 @@ febama_mcmc <- function(data, model_conf)
 
     ## Reserve space for OUT beta and initialize variable selection indicators
     OUT = list()
-    for(model_i in 1:num_models_updated)
+    for(iComp in 1:num_models_updated)
     {
         ## Determine number of features used.
         nFeat = 0 # no variable selection if cand=NULL
-        if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
+        if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
         {
-            nFeat = length(model_conf$features_used[[model_i]])
+            nFeat = length(model_conf$features_used[[iComp]])
         }
 
-        OUT[["beta"]][[model_i]] = matrix(NA, nIter, nFeat + 1)
-        OUT[["betaIdx"]][[model_i]] = matrix(NA, nIter, nFeat + 1)
+        OUT[["beta"]][[iComp]] = matrix(NA, nIter, nFeat + 1)
+        OUT[["betaIdx"]][[iComp]] = matrix(NA, nIter, nFeat + 1)
 
         ## Initialize variable selection indicators
-        if(varSelArgs[[model_i]]$init == "all-in")
+        if(varSelArgs[[iComp]]$init == "all-in")
         {
-            OUT[["betaIdx"]][[model_i]][1, ] = 1
+            OUT[["betaIdx"]][[iComp]][1, ] = 1
         }
-        else if (varSelArgs[[model_i]]$init == "all-out")
+        else if (varSelArgs[[iComp]]$init == "all-out")
         {
-            OUT[["betaIdx"]][[model_i]][1, ] = 0
-            OUT[["betaIdx"]][[model_i]][1, 1] = 1
+            OUT[["betaIdx"]][[iComp]][1, ] = 0
+            OUT[["betaIdx"]][[iComp]][1, 1] = 1
         }
-        else if(varSelArgs[[model_i]]$init == "random")
+        else if(varSelArgs[[iComp]]$init == "random")
         {
-            OUT[["betaIdx"]][[model_i]][1, ] = c(1, rbinom(nFeat, 1, 0.5)) # intercept is always in.
+            OUT[["betaIdx"]][[iComp]][1, ] = c(1, rbinom(nFeat, 1, 0.5)) # intercept is always in.
         }
         else
         {
@@ -112,19 +112,19 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 
     beta_prop = beta_curr
     betaIdx_prop = betaIdx_curr
-    for (model_i in 1:num_models_updated)
+    for (iComp in 1:num_models_updated)
     {
-        nPar_full = length(betaIdx_curr[[model_i]])
+        nPar_full = length(betaIdx_curr[[iComp]])
 
         ## 1. propose an update of variable selection indicators. Random proposal when
         ## variable selection is enabled: NOT NULL.
-        if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
+        if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
         {
-            betaIdx_prop[[model_i]] = c(1, rbinom(nPar_full - 1, 1, prob = 0.5))
+            betaIdx_prop[[iComp]] = c(1, rbinom(nPar_full - 1, 1, prob = 0.5))
         }
 
         ## 2. conditional on this variable selection indicators, update beta via SGLD
-        beta_model_i_sgld = matrix(0, nEpoch * nBatch, nPar_full)
+        beta_iComp_sgld = matrix(0, nEpoch * nBatch, nPar_full)
         for (iIter in 1:(nEpoch * nBatch))
         {
             ## SGLD settings
@@ -146,32 +146,32 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
             data_curr = lapply(data[c("lpd","feat")], function(x) x[dataIdxLst[[iBatch]], ,drop=FALSE])
             batchRatio = length(dataIdxLst[[iBatch]]) / nObs # n/N
 
-            grad_model_i = log_posterior_grad(data = data_curr,
+            grad_iComp = log_posterior_grad(data = data_curr,
                                               beta = beta_prop,
                                               betaIdx = betaIdx_prop,
                                               priArgs = priArgs,
                                               varSelArgs = varSelArgs,
                                               features_used = features_used,
-                                              model_update = model_i,
+                                              model_update = iComp,
                                               batchRatio = batchRatio)[[1]]
 
             ## SGLD
-            nPar1 = sum(betaIdx_prop[[model_i]]) # length of non-zero parameters
-            beta_new <- (as.vector(beta_prop[[model_i]][betaIdx_prop[[model_i]] == 1] + stepsize / 2 * grad_model_i) +
+            nPar1 = sum(betaIdx_prop[[iComp]]) # length of non-zero parameters
+            beta_new <- (as.vector(beta_prop[[iComp]][betaIdx_prop[[iComp]] == 1] + stepsize / 2 * grad_iComp) +
                          as.vector(rmvnorm(1, rep(0, nPar1), stepsize* diag(nPar1))))
 
-            beta_model_i_sgld[iIter, betaIdx_prop[[model_i]] == 1] = beta_new
+            beta_iComp_sgld[iIter, betaIdx_prop[[iComp]] == 1] = beta_new
 
-            beta_prop[[model_i]][betaIdx_prop[[model_i]] == 1] = beta_new
-            betaIdx_prop[[model_i]][betaIdx_prop[[model_i]] == 0] = 0
+            beta_prop[[iComp]][betaIdx_prop[[iComp]] == 1] = beta_new
+            betaIdx_prop[[iComp]][betaIdx_prop[[iComp]] == 0] = 0
         }
 
         ## Polyak-Ruppert averaging improve the efficiency of SGLD
         burnin = 1:(ceiling(burninProp * nEpoch * nBatch))
-        beta_prop[[model_i]] = colMeans(beta_model_i_sgld[-burnin,, drop = FALSE])
+        beta_prop[[iComp]] = colMeans(beta_iComp_sgld[-burnin,, drop = FALSE])
 
         ## Metropolis-Hasting accept/reject for variable selection
-        if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
+        if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
         {
             log_post_prop = log_posterior(data = data,
                                           beta = beta_prop,
@@ -179,14 +179,14 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
                                           priArgs = priArgs,
                                           varSelArgs = varSelArgs,
                                           features_used = features_used,
-                                          model_update = model_i)
+                                          model_update = iComp)
             log_post_curr = log_posterior(data = data,
                                           beta = beta_curr,
                                           betaIdx = betaIdx_curr,
                                           priArgs = priArgs,
                                           varSelArgs = varSelArgs,
                                           features_used = features_used,
-                                          model_update = model_i)
+                                          model_update = iComp)
 
 
             ## The jump density for the variable selection indicators. TODO: Add adaptive scheme
@@ -208,19 +208,19 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 
             if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
             {  ## keep the proposal
-                beta_curr[[model_i]] <- beta_prop[[model_i]]
-                betaIdx_curr[[model_i]] <- betaIdx_prop[[model_i]]
+                beta_curr[[iComp]] <- beta_prop[[iComp]]
+                betaIdx_curr[[iComp]] <- betaIdx_prop[[iComp]]
             }
             else
             { ## keep the current
-                beta_prop[[model_i]] = beta_curr[[model_i]]
-                betaIdx_prop[[model_i]] = betaIdx_curr[[model_i]]
+                beta_prop[[iComp]] = beta_curr[[iComp]]
+                betaIdx_prop[[iComp]] = betaIdx_curr[[iComp]]
             }
         }
         else
         {
             accept_prob_curr = 1 # SGLD always accepts
-            beta_curr[[model_i]] <- beta_prop[[model_i]] ## Accepted
+            beta_curr[[iComp]] <- beta_prop[[iComp]] ## Accepted
             ## betaIdx_curr unchanged.
         }
 
