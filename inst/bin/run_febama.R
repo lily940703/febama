@@ -114,12 +114,8 @@ for (i in 1:length(lpd_features)) {
 }
 
 ## Algorithm
-i_ts = 1
-OUT = febama_mcmc(data = lpd_features[[i_ts]], model_conf = model_conf)
+OUT = lapply(lpd_features, febama_mcmc, model_conf = model_conf)
 
-
-## browser()
-## stop("Testing ends here!")
 
 ## beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
 ##     beta_prepare(SGLD_VS[[i_ts]])

@@ -40,6 +40,9 @@ febama_mcmc <- function(data, model_conf)
         {
             stop("No such init for betaIdx!")
         }
+
+        ## Reserve space for acceptance probabilities with MH corrections
+        OUT[["accept_prob"]][[iComp]] = matrix(1, nIter, 1)
     }
 
     betaIdx_curr = lapply(OUT[["betaIdx"]], function(x) x[1,])
@@ -65,8 +68,6 @@ febama_mcmc <- function(data, model_conf)
         return(x)
     }, x = OUT[["beta"]], y = beta_curr, SIMPLIFY = FALSE)
 
-
-
     for (iIter in 2:nIter)
     { # Loop start with the second iteration. The first iteration is considered as initial
                                         # values.
@@ -76,6 +77,7 @@ febama_mcmc <- function(data, model_conf)
         ## Extract parameters for loop use
         beta_curr = beta_betaIdx[["beta"]]
         betaIdx_curr = beta_betaIdx[["betaIdx"]]
+        accept_prob_curr = beta_betaIdx[["accept_prob"]]
 
         ## Assign the final output
         OUT[["beta"]] = mapply(function(x, y){
@@ -87,6 +89,11 @@ febama_mcmc <- function(data, model_conf)
             x[iIter, ] = y
             return(x)
         }, x = OUT[["betaIdx"]], y = beta_betaIdx[["betaIdx"]], SIMPLIFY = FALSE)
+
+        OUT[["accept_prob"]] = mapply(function(x, y){
+            x[iIter, ] = y
+            return(x)
+        }, x = OUT[["accept_prob"]], y = beta_betaIdx[["accept_prob"]], SIMPLIFY = FALSE)
     }
     return(OUT)
 }
@@ -139,7 +146,7 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
             if(iIter %in% seq(1, nEpoch * nBatch, nBatch))
             {
                 iBatch = 0
-                dataIdxLst = split(sample(1:nObs,nObs),1:nBatch)
+                dataIdxLst = suppressWarnings(split(sample(1:nObs,nObs),1:nBatch))
             }
             iBatch = iBatch + 1
 
