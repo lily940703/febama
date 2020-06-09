@@ -12,17 +12,11 @@ source("R/models.R")
 source("R/mcmc.R")
 source("R/priors.R")
 source("R/posterior.R")
+source("R/logscore.R")
 source("R/febama.R")
 
-## Load data
-## library(M4comp2018)
-load("data/M4.rda")
-
-## set.seed(2020-0503)
-data_test <- M4[sample(c(23001:47000), 10)]
-
 # Should recalculate the features and save to path, or load from the saved path.
-lpd_features_loc = list("calculate" = TRUE,
+lpd_features_loc = list("calculate" = FALSE,
                         save_path = "data/lpd_features_yearly.Rdata")
 
 num_models = 3
@@ -41,7 +35,7 @@ model_conf = list(
     ## Variable selection settings. By default, every model shares the same
     ## settings. Otherwise, write the full list, same applies to priArgs, this would allow
     ## for some models with only intercept.  Variable selection candidates, NULL: no
-    ## variable selection use full covariates. ("all-in", "all-out", "random", or
+    ## variable selection use the full covariates provided by $init. ("all-in", "all-out", "random", or
     ## user-input)
   , varSelArgs = rep(list(list(cand = "2:end", init = "all-in")), num_models - 1)
 
@@ -86,6 +80,14 @@ model_conf = list(
 
 if(lpd_features_loc$calculate == TRUE)
 {
+    ## Load data
+    ## library(M4comp2018)
+    message("Loading the time series data.")
+    load("data/M4.rda")
+
+    ## set.seed(2020-0503)
+    data_test <- M4[sample(c(23001:47000), 10)]
+
     ## Extract `all 42 features` and given models (model_conf$fore_model)
     message("Extracting LPD and features for given models: ",
             paste(model_conf$fore_model, collapse = ", "))
@@ -113,128 +115,130 @@ for (i in 1:length(lpd_features)) {
 
 ## Algorithm
 i_ts = 1
-febama_mcmc(data = lpd_features[[i_ts]], model_conf = model_conf)
-
-stop("Testing ends here!")
-
-beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
-    beta_prepare(SGLD_VS[[i_ts]])
-
-fore_feat <- foreach(i_ts = 1:length(data_test)) %dopar%
-    forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf,
-                                   intercept = T, lpd_feature = lpd_features[[i_ts]],
-                                   beta_pre = beta_pre[[i_ts]])
-perform_feat <- forecast_feature_performance(fore_feat)
-
-## Compare
-optim <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
-    optim_beta (lpd_features[[i_ts]], features_y = NULL)
-
-fore <- foreach(i_ts = 1:length(optim)) %dopar%
-    forecast_results_nofea(data = data_test[[i_ts]],
-                           model_conf = model_conf, optimal_beta = optim[[i_ts]])
-
-perform <- forecast_performance(fore)
-
-stopCluster(cl)
-
-save(data_test, model_conf, lpd_feature, SGLD_VS,
-     beta_pre, fore_feat, perform_feat,
-     optim, fore, perform, file = "test/Q1000.RData")
-
-## Visualization
-
-par(mfrow = c(4,2))
-for (i in 1:4) {
-    plot(SGLD_VS[[1]]$result_all[[i]]$logscore[1,], ylab = "log score",
-         xlab = paste0(i,'th iteration of beta1' ),ylim = c(-18,-15))
-    abline(h=-15.21724, col = "2")
-
-    plot(SGLD_VS[[1]]$result_all[[i]]$logscore[2,], ylab = "log score",
-         xlab = paste0(i,'th iteration of beta2' ), ylim = c(-18,-15))
-    abline(h=-15.21724, col = "2")
-}
-
-par(mfrow = c(4,2))
-for (i in 1:4) {
-    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
-         xlab = paste0(i,'th iteration of beta1' ))
-    abline(h=63.32389, col = "2")
-    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
-         xlab = paste0(i,'th iteration of beta2' ))
-    abline(h=63.32389, col = "2")
-}
+OUT = febama_mcmc(data = lpd_features[[i_ts]], model_conf = model_conf)
 
 
-par(mfrow = c(4,2))
-for (i in 91:94) {
-    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
-         xlab = paste0(i,'th iteration of beta1' ))
-    abline(h=63.32389, col = "2")
-    plot(SGLD_VS[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
-         xlab = paste0(i,'th iteration of beta2' ))
-    abline(h=63.32389, col = "2")
-}
+## browser()
+## stop("Testing ends here!")
 
-ll <- c()
-for (i in 1:1000) {
-    l <- length(data_test[[i]]$x)
-    ll <- c(ll,l)
-}
-par(mfrow = c(1,1))
-hist(ll, main = "Histogram of length in historical data", ylim = c(0,500))
+## beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
+##     beta_prepare(SGLD_VS[[i_ts]])
 
-rank_ls <- c()
-for (i in 1:1000) {
-    ls <- c(fore_feat[[i]]$err_feature[,"lpds"], fore[[i]]$logscore)
-    names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
-                                        # ascending order
-    ran <- rank(ls)
-    rank_ls <- rbind(rank_ls, ran)
-}
+## fore_feat <- foreach(i_ts = 1:length(data_test)) %dopar%
+##     forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf,
+##                                    intercept = T, lpd_feature = lpd_features[[i_ts]],
+##                                    beta_pre = beta_pre[[i_ts]])
+## perform_feat <- forecast_feature_performance(fore_feat)
 
-ls_win <- apply(rank_ls, 2, function(x){sum(x==6)})
-ls_win <- cbind(names(ls_win),data.frame(ls_win), rep("logscore",6))
-colnames(ls_win)=NULL
-rownames(ls_win)=NULL
+## ## Compare
+## optim <- foreach(i_ts = 1:length(lpd_feature)) %dopar%
+##     optim_beta (lpd_features[[i_ts]], features_y = NULL)
 
+## fore <- foreach(i_ts = 1:length(optim)) %dopar%
+##     forecast_results_nofea(data = data_test[[i_ts]],
+##                            model_conf = model_conf, optimal_beta = optim[[i_ts]])
 
-rank_mase <- c()
-for (i in 1:1000) {
-    ls <- c(fore_feat[[i]]$err_feature[,"mase_err_h"], fore[[i]]$mase_err)
-    names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
-    ran <- rank(ls, ties.method = "random")
-    rank_mase <- rbind(rank_mase, ran)
-}
+## perform <- forecast_performance(fore)
 
-mase_win <- apply(rank_mase, 2, function(x){sum(x==1)})
-mase_win <- cbind(names(mase_win),data.frame(mase_win), rep("mase",6))
-colnames(mase_win)=NULL
-rownames(mase_win)=NULL
+## stopCluster(cl)
 
+## save(data_test, model_conf, lpd_feature, SGLD_VS,
+##      beta_pre, fore_feat, perform_feat,
+##      optim, fore, perform, file = "test/Q1000.RData")
 
-rank_smape <- c()
-for (i in 1:1000) {
-    ls <- c(fore_feat[[i]]$err_feature[,"smape_err_h"], fore[[i]]$smape_err)
-    names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
-    ran <- rank(ls, ties.method = "random")
-    rank_smape <- rbind(rank_smape, ran)
-}
+## ## Visualization
 
-smape_win <- apply(rank_smape, 2, function(x){sum(x==1)})
-smape_win <- cbind(names(smape_win),data.frame(smape_win), rep("smape",6))
-colnames(smape_win)=NULL
-rownames(smape_win)=NULL
+## par(mfrow = c(4,2))
+## for (i in 1:4) {
+##     plot(SGLD_VS[[1]]$result_all[[i]]$logscore[1,], ylab = "log score",
+##          xlab = paste0(i,'th iteration of beta1' ),ylim = c(-18,-15))
+##     abline(h=-15.21724, col = "2")
+
+##     plot(SGLD_VS[[1]]$result_all[[i]]$logscore[2,], ylab = "log score",
+##          xlab = paste0(i,'th iteration of beta2' ), ylim = c(-18,-15))
+##     abline(h=-15.21724, col = "2")
+## }
+
+## par(mfrow = c(4,2))
+## for (i in 1:4) {
+##     plot(SGLD_VS[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
+##          xlab = paste0(i,'th iteration of beta1' ))
+##     abline(h=63.32389, col = "2")
+##     plot(SGLD_VS[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
+##          xlab = paste0(i,'th iteration of beta2' ))
+##     abline(h=63.32389, col = "2")
+## }
 
 
-win <- rbind(data.frame(ls_win), data.frame(mase_win), data.frame(smape_win))
+## par(mfrow = c(4,2))
+## for (i in 91:94) {
+##     plot(SGLD_VS[[5]]$result_all[[i]]$logscore[1,], ylab = "log score",
+##          xlab = paste0(i,'th iteration of beta1' ))
+##     abline(h=63.32389, col = "2")
+##     plot(SGLD_VS[[5]]$result_all[[i]]$logscore[2,], ylab = "log score",
+##          xlab = paste0(i,'th iteration of beta2' ))
+##     abline(h=63.32389, col = "2")
+## }
 
-Q1000_win <- data.frame(method = win[,1], win_num = win[,2], error = win[,3])
+## ll <- c()
+## for (i in 1:1000) {
+##     l <- length(data_test[[i]]$x)
+##     ll <- c(ll,l)
+## }
+## par(mfrow = c(1,1))
+## hist(ll, main = "Histogram of length in historical data", ylim = c(0,500))
 
-library("ggplot2")
-ggplot(Q1000_win, aes(x=error, y=win_num, fill=method)) + geom_bar(stat='identity')
+## rank_ls <- c()
+## for (i in 1:1000) {
+##     ls <- c(fore_feat[[i]]$err_feature[,"lpds"], fore[[i]]$logscore)
+##     names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
+##                                         # ascending order
+##     ran <- rank(ls)
+##     rank_ls <- rbind(rank_ls, ran)
+## }
 
-ind <- Q1000_win$method %in% c("ets","naive","rw_drift")
-Q1000_win0 <- Q1000_win[!ind,]
+## ls_win <- apply(rank_ls, 2, function(x){sum(x==6)})
+## ls_win <- cbind(names(ls_win),data.frame(ls_win), rep("logscore",6))
+## colnames(ls_win)=NULL
+## rownames(ls_win)=NULL
 
-ggplot(Q1000_win0,aes(x=error, y=win_num, fill=method)) + geom_bar(stat='identity')
+
+## rank_mase <- c()
+## for (i in 1:1000) {
+##     ls <- c(fore_feat[[i]]$err_feature[,"mase_err_h"], fore[[i]]$mase_err)
+##     names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
+##     ran <- rank(ls, ties.method = "random")
+##     rank_mase <- rbind(rank_mase, ran)
+## }
+
+## mase_win <- apply(rank_mase, 2, function(x){sum(x==1)})
+## mase_win <- cbind(names(mase_win),data.frame(mase_win), rep("mase",6))
+## colnames(mase_win)=NULL
+## rownames(mase_win)=NULL
+
+
+## rank_smape <- c()
+## for (i in 1:1000) {
+##     ls <- c(fore_feat[[i]]$err_feature[,"smape_err_h"], fore[[i]]$smape_err)
+##     names(ls) <- c("Ours", "OP","SA","ets","naive","rw_drift")
+##     ran <- rank(ls, ties.method = "random")
+##     rank_smape <- rbind(rank_smape, ran)
+## }
+
+## smape_win <- apply(rank_smape, 2, function(x){sum(x==1)})
+## smape_win <- cbind(names(smape_win),data.frame(smape_win), rep("smape",6))
+## colnames(smape_win)=NULL
+## rownames(smape_win)=NULL
+
+
+## win <- rbind(data.frame(ls_win), data.frame(mase_win), data.frame(smape_win))
+
+## Q1000_win <- data.frame(method = win[,1], win_num = win[,2], error = win[,3])
+
+## library("ggplot2")
+## ggplot(Q1000_win, aes(x=error, y=win_num, fill=method)) + geom_bar(stat='identity')
+
+## ind <- Q1000_win$method %in% c("ets","naive","rw_drift")
+## Q1000_win0 <- Q1000_win[!ind,]
+
+## ggplot(Q1000_win0,aes(x=error, y=win_num, fill=method)) + geom_bar(stat='identity')

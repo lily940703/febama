@@ -6,26 +6,43 @@ febama_mcmc <- function(data, model_conf)
     priArgs = model_conf$priArgs
 
     nIter = algArgs$nIter
+    num_models_updated = ncol(data$lpd) - 1
 
-    ## Reserve space for beta
+    ## Reserve space for OUT beta and initialize variable selection indicators
     OUT = list()
-    OUT[["beta"]] = lapply(model_conf$features,
-                           function(x) matrix(nrow=nIter,ncol=length(x)+1))
-
-    ## Initialize variable selection indicators
-    OUT[["betaIdx"]] = mapply(function(x, y){
-        if(y$init == "all-in")
+    for(model_i in 1:num_models_updated)
+    {
+        ## Determine number of features used.
+        nFeat = 0 # no variable selection if cand=NULL
+        if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
         {
-            x[1, ] = 1
+            nFeat = length(model_conf$features_used[[model_i]])
         }
-        else if(y$init == "random")
-        {
-            x[1, ] = c(1, rbinom(length(x) - 1, 1, 0.5)) # intercept is always in.
-        }
-        return(x)
-    }, x = OUT_beta_full, y = varSelArgs, SIMPLIFY = FALSE)
 
-    betaIdx_curr = lapply(OUT_betaIdx_full, function(x) x[1,])
+        OUT[["beta"]][[model_i]] = matrix(NA, nIter, nFeat + 1)
+        OUT[["betaIdx"]][[model_i]] = matrix(NA, nIter, nFeat + 1)
+
+        ## Initialize variable selection indicators
+        if(varSelArgs[[model_i]]$init == "all-in")
+        {
+            OUT[["betaIdx"]][[model_i]][1, ] = 1
+        }
+        else if (varSelArgs[[model_i]]$init == "all-out")
+        {
+            OUT[["betaIdx"]][[model_i]][1, ] = 0
+            OUT[["betaIdx"]][[model_i]][1, 1] = 1
+        }
+        else if(varSelArgs[[model_i]]$init == "random")
+        {
+            OUT[["betaIdx"]][[model_i]][1, ] = c(1, rbinom(nFeat, 1, 0.5)) # intercept is always in.
+        }
+        else
+        {
+            stop("No such init for betaIdx!")
+        }
+    }
+
+    betaIdx_curr = lapply(OUT[["betaIdx"]], function(x) x[1,])
     beta_curr = lapply(betaIdx_curr, function(x) rnorm(length(x)))
 
     ## Numeric optimization to obtain MAP (Maximum a Posteriori)
@@ -46,65 +63,68 @@ febama_mcmc <- function(data, model_conf)
     OUT[["beta"]] = mapply(function(x, y){
         x[1, ] = y
         return(x)
-    }, x = OUT_beta_full, y = beta_curr, SIMPLIFY = FALSE)
+    }, x = OUT[["beta"]], y = beta_curr, SIMPLIFY = FALSE)
 
 
 
-    for (i in 1:nIter)
-    {
+    for (iIter in 2:nIter)
+    { # Loop start with the second iteration. The first iteration is considered as initial
+                                        # values.
         beta_betaIdx <-  SGLD_gibbs(data = data,  beta_curr = beta_curr,
                                     betaIdx_curr = betaIdx_curr, model_conf = model_conf)
 
+        ## Extract parameters for loop use
         beta_curr = beta_betaIdx[["beta"]]
         betaIdx_curr = beta_betaIdx[["betaIdx"]]
 
-
+        ## Assign the final output
         OUT[["beta"]] = mapply(function(x, y){
-            x[i, ] = y
+            x[iIter, ] = y
             return(x)
-        }, x = OUT_beta_full, y = beta_betaIdx[["beta"]], SIMPLIFY = FALSE)
+        }, x = OUT[["beta"]], y = beta_betaIdx[["beta"]], SIMPLIFY = FALSE)
 
         OUT[["betaIdx"]] = mapply(function(x, y){
-            x[i, ] = y
+            x[iIter, ] = y
             return(x)
-        }, x = OUT_beta_full, y = beta_betaIdx[["beta"]], SIMPLIFY = FALSE)
-
+        }, x = OUT[["betaIdx"]], y = beta_betaIdx[["betaIdx"]], SIMPLIFY = FALSE)
     }
-
     return(OUT)
 }
 
 
 SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 {
+    nObs = nrow(data$lpd)
     nEpoch = model_conf$algArgs$sgld$nEpoch
+    stepsize = model_conf$algArgs$sgld$stepsize
     burninProp = model_conf$algArgs$sgld$burninProp
+
+    priArgs = model_conf$priArgs
+    varSelArgs = model_conf$varSelArgs
+
+    features_used = model_conf$features_used
 
     max_batchSize = model_conf$algArgs$sgld$max_batchSize
     batchSize = min(nObs, max_batchSize)
     nBatch = round(nObs/batchSize)
 
     num_models_updated = ncol(data$lpd) - 1
-    nObs = nrow(data$lpd)
 
+    beta_prop = beta_curr
+    betaIdx_prop = betaIdx_curr
     for (model_i in 1:num_models_updated)
     {
-        ## 1. propose an update of variable selection indicators
-        betaIdx_model_i <- betaIdx_curr[[model_i]]
-        beta_model_i = beta_curr[[model_i]]
-        nPar = length(betaIdx_model_i)
+        nPar_full = length(betaIdx_curr[[model_i]])
 
-        betaIdx_prop = betaIdx_curr
-
-        ## Random proposal when variable selection is enabled: NOT NULL.
+        ## 1. propose an update of variable selection indicators. Random proposal when
+        ## variable selection is enabled: NOT NULL.
         if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
         {
-            betaIdx_prop[[model_i]] = c(1, rbinom(nPar - 1, 1, prob = 0.5))
+            betaIdx_prop[[model_i]] = c(1, rbinom(nPar_full - 1, 1, prob = 0.5))
         }
 
         ## 2. conditional on this variable selection indicators, update beta via SGLD
-        beta_model_i_sgld = matrix(0, nEpoch * nBatch, nPar)
-
+        beta_model_i_sgld = matrix(0, nEpoch * nBatch, nPar_full)
         for (iIter in 1:(nEpoch * nBatch))
         {
             ## SGLD settings
@@ -127,7 +147,7 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
             batchRatio = length(dataIdxLst[[iBatch]]) / nObs # n/N
 
             grad_model_i = log_posterior_grad(data = data_curr,
-                                              beta = beta_curr,
+                                              beta = beta_prop,
                                               betaIdx = betaIdx_prop,
                                               priArgs = priArgs,
                                               varSelArgs = varSelArgs,
@@ -136,23 +156,19 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
                                               batchRatio = batchRatio)[[1]]
 
             ## SGLD
-            nPar_new = sum(betaIdx_prop[[model_i]])
-
-            beta_new <- (as.vector(beta_model_i[betaIdx_prop[[model_i]] == 1] + stepsize / 2 * grad_model_i) +
-                         as.vector(rmvnorm(1, rep(0, nPar_new), stepsize* diag(nPar_new))))
+            nPar1 = sum(betaIdx_prop[[model_i]]) # length of non-zero parameters
+            beta_new <- (as.vector(beta_prop[[model_i]][betaIdx_prop[[model_i]] == 1] + stepsize / 2 * grad_model_i) +
+                         as.vector(rmvnorm(1, rep(0, nPar1), stepsize* diag(nPar1))))
 
             beta_model_i_sgld[iIter, betaIdx_prop[[model_i]] == 1] = beta_new
 
-            beta_curr[[model_i]][betaIdx_prop[[model_i]] == 1] = beta_new
-            beta_curr[[model_i]][betaIdx_prop[[model_i]] == 0] = 0
-
+            beta_prop[[model_i]][betaIdx_prop[[model_i]] == 1] = beta_new
+            betaIdx_prop[[model_i]][betaIdx_prop[[model_i]] == 0] = 0
         }
 
-        ## Polyak-ruppert averaging
+        ## Polyak-Ruppert averaging improve the efficiency of SGLD
         burnin = 1:(ceiling(burninProp * nEpoch * nBatch))
-
-        beta_prop = beta_curr
-        beta_prop[[model_i]] = colMeans(beta_model_i_sgld[-burnin, ])
+        beta_prop[[model_i]] = colMeans(beta_model_i_sgld[-burnin,, drop = FALSE])
 
         ## Metropolis-Hasting accept/reject for variable selection
         if(length(model_conf$varSelArgs[[model_i]]$cand) > 0)
@@ -192,17 +208,24 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 
             if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
             {  ## keep the proposal
-                beta_curr <- beta_prop
-                betaIdx_curr <- betaIdx_prop
+                beta_curr[[model_i]] <- beta_prop[[model_i]]
+                betaIdx_curr[[model_i]] <- betaIdx_prop[[model_i]]
             }
             else
             { ## keep the current
+                beta_prop[[model_i]] = beta_curr[[model_i]]
+                betaIdx_prop[[model_i]] = betaIdx_curr[[model_i]]
             }
+        }
+        else
+        {
+            accept_prob_curr = 1 # SGLD always accepts
+            beta_curr[[model_i]] <- beta_prop[[model_i]] ## Accepted
+            ## betaIdx_curr unchanged.
         }
 
     }
 
-    out = list(beta = beta_curr, betaIdx = betaIdx_curr)
-
+    out = list(beta = beta_curr, betaIdx = betaIdx_curr, accept_prob = accept_prob_curr)
     return(out)
 }
