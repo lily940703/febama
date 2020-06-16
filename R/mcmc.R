@@ -12,11 +12,14 @@ febama_mcmc <- function(data, model_conf)
     OUT = list()
     for(iComp in 1:num_models_updated)
     {
+        ## browser()
         ## Determine number of features used.
-        nFeat = 0 # no variable selection if cand=NULL
-        if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
+        nFeat = length(model_conf$features_used[[iComp]]) # default number of features = features_used
+
+        ## nFeat = 0 if only intercept is used.
+        if(length(model_conf$features_used[[iComp]]) == 0)
         {
-            nFeat = length(model_conf$features_used[[iComp]])
+            nFeat = 0
         }
 
         OUT[["beta"]][[iComp]] = matrix(NA, nIter, nFeat + 1)

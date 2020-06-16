@@ -20,7 +20,12 @@ lpd_features_loc = list("calculate" = FALSE,
                         save_path = "data/lpd_features_yearly.Rdata")
 
 num_models = 3
-model_conf = list(
+###----------------------------------------------------------------------------
+### Model config template
+###----------------------------------------------------------------------------
+
+## Default model config template
+model_conf_default = list(
     frequency = 4
   , ets_model = "ANN" # simple exponential smoothing with additive errors
   , forecast_h = 8 # Forecasting horizon
@@ -28,15 +33,15 @@ model_conf = list(
   , history_burn = 16 # Let the model to start with at least this length of historical data.
   , PI_level = 90 # Predictive Interval level, used to extract out-of-sample variance from forecasting models.
   , roll = NULL # The length of rolling samples, larger than history_burn
-  , feature_window =NULL # The length of moving window when computing features
+  , feature_window = NULL # The length of moving window when computing features
   , features_used = rep(list(c("entropy", "arch_acf", "alpha", "beta", "unitroot_kpss")), num_models - 1)
   , fore_model = c("ets_fore",  "naive_fore", "rw_drift_fore")
 
     ## Variable selection settings. By default, every model shares the same
     ## settings. Otherwise, write the full list, same applies to priArgs, this would allow
     ## for some models with only intercept.  Variable selection candidates, NULL: no
-    ## variable selection use the full covariates provided by $init. ("all-in", "all-out", "random", or
-    ## user-input)
+    ## variable selection use the full covariates provided by $init. ("all-in", "all-out",
+    ## "random", or user-input)
   , varSelArgs = rep(list(list(cand = "2:end", init = "all-in")), num_models - 1)
 
   , priArgs = rep(list(list("beta" = list(type = "cond-mvnorm",
@@ -56,6 +61,25 @@ model_conf = list(
 
 )
 
+
+## Model without variable selection
+model_conf_NoVS = model_conf_default
+model_conf_NoVS[["varSelArgs"]] = rep(list(list(cand = NULL, init = "all-in")), num_models - 1)
+
+## Model with only intercept (Bayesian optimal pool)
+model_conf_NoFeat = model_conf_default
+model_conf_NoFeat[["features_used"]] = rep(list(NULL), num_models - 1)
+model_conf_NoFeat[["varSelArgs"]] = rep(list(list(cand = NULL, init = "all-in")), num_models - 1)
+
+
+###----------------------------------------------------------------------------
+### Experiments
+###----------------------------------------------------------------------------
+
+## Load current model config
+model_conf_curr = model_conf_default
+## model_conf_curr = model_conf_NoVS
+## model_conf_curr = model_conf_NoFeat
 ## -------------------------  Experiment  ----------------------------#
 ## library(foreach)
 ## library(doParallel)
@@ -76,7 +100,7 @@ model_conf = list(
     library("MASS")
 ## })
 
-## clusterExport(cl, model_conf$fore_model)
+## clusterExport(cl, model_conf_curr$fore_model)
 
 if(lpd_features_loc$calculate == TRUE)
 {
@@ -88,11 +112,11 @@ if(lpd_features_loc$calculate == TRUE)
     ## set.seed(2020-0503)
     data_test <- M4[sample(c(23001:47000), 10)]
 
-    ## Extract `all 42 features` and given models (model_conf$fore_model)
+    ## Extract `all 42 features` and given models (model_conf_curr$fore_model)
     message("Extracting LPD and features for given models: ",
-            paste(model_conf$fore_model, collapse = ", "))
+            paste(model_conf_curr$fore_model, collapse = ", "))
 
-    lpd_features0 <- lapply(data_test, lpd_features_multi, model_conf=model_conf)
+    lpd_features0 <- lapply(data_test, lpd_features_multi, model_conf=model_conf_curr)
     lpd_features <- feature_clean(lpd_features0)
 
     save(lpd_features, file = lpd_features_loc$save_path)
@@ -103,25 +127,25 @@ if(lpd_features_loc$calculate == TRUE)
     message("LPD and features are loaded from: ", lpd_features_loc$save_path)
 }
 
-## Extract lpd and candidate features from `model_conf$features`
+## Extract lpd and candidate features from `model_conf_curr$features`
 for (i in 1:length(lpd_features)) {
     fe <- lpd_features[[i]]$feat
     fm <- lpd_features[[i]]$feat_mean
     fs <- lpd_features[[i]]$feat_sd
-    lpd_features[[i]]$feat<- fe[, unique(unlist(model_conf$features))]
-    lpd_features[[i]]$feat_mean <- fm[unique(unlist(model_conf$features))]
-    lpd_features[[i]]$feat_sd <- fs[unique(unlist(model_conf$features))]
+    lpd_features[[i]]$feat<- fe[, unique(unlist(model_conf_curr$features))]
+    lpd_features[[i]]$feat_mean <- fm[unique(unlist(model_conf_curr$features))]
+    lpd_features[[i]]$feat_sd <- fs[unique(unlist(model_conf_curr$features))]
 }
 
 ## Algorithm
-OUT = lapply(lpd_features, febama_mcmc, model_conf = model_conf)
+OUT = lapply(lpd_features, febama_mcmc, model_conf = model_conf_curr)
 
 
 ## beta_pre <- foreach(i_ts = 1:length(SGLD_VS)) %dopar%
 ##     beta_prepare(SGLD_VS[[i_ts]])
 
 ## fore_feat <- foreach(i_ts = 1:length(data_test)) %dopar%
-##     forecast_feature_results_multi(data = data_test[[i_ts]], model_conf = model_conf,
+##     forecast_feature_results_multi(data = data_test[[i_ts]], model_conf_curr = model_conf_curr,
 ##                                    intercept = T, lpd_feature = lpd_features[[i_ts]],
 ##                                    beta_pre = beta_pre[[i_ts]])
 ## perform_feat <- forecast_feature_performance(fore_feat)
@@ -132,7 +156,7 @@ OUT = lapply(lpd_features, febama_mcmc, model_conf = model_conf)
 
 ## fore <- foreach(i_ts = 1:length(optim)) %dopar%
 ##     forecast_results_nofea(data = data_test[[i_ts]],
-##                            model_conf = model_conf, optimal_beta = optim[[i_ts]])
+##                            model_conf_curr = model_conf_curr, optimal_beta = optim[[i_ts]])
 
 ## perform <- forecast_performance(fore)
 
