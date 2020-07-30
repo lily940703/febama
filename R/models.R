@@ -1,10 +1,15 @@
-# @references FFORMA: Feature-based Forecast Model Averaging
+#' @references FFORMA: Feature-based Forecast Model Averaging
+#' @models in 'forecast': ets, auto.arima, naive, rw_drift, snaive, stlm_ar, thetaf
+#' @details: Obtain the forecasting sd by assuming a Gaussian interval
+#' @param x: A \code{ts} object with the input time series
+#' @param train_h: The amount of future time steps to forecast
+#' @param PI_level: Predictive Interval level, used to extract out-of-sample variance from forecasting models.
+#' @export
+
 ets_fore <- function(x, train_h, PI_level) {
   ets_fit <- forecast::ets(x, model = "ANN")
   ets_fore <- forecast(ets_fit, h = train_h, level = PI_level)
   ets_fore_mean <- ets_fore$mean
-
-  ## Obtain the forecasting sd by assuming a Gaussian interval
   ets_fore_sd <- (ets_fore$lower - ets_fore$mean) / qnorm(1 - PI_level / 100)
   return(list(ets_fore_mean = as.numeric(ets_fore_mean),
               ets_fore_sd = as.numeric(ets_fore_sd) ))
@@ -44,25 +49,6 @@ snaive_fore <- function(x, train_h, PI_level) {
               snaive_fore_sd = as.numeric(snaive_fore_sd) ))
 }
 
-# nnetar_fore <- function(x, train_h, PI_level) {
-#   nnetar_fit <- forecast::nnetar(x)
-#   nnetar_fore <- forecast(nnetar_fit, h = train_h, level = PI_level)
-#   nnetar_fore_mean <- nnetar_fore$mean
-#   nnetar_fore_sd <-
-#   return(list(nnetar_fore_mean = as.numeric(nnetar_fore_mean),
-#               nnetar_fore_sd = as.numeric(nnetar_fore_sd) ))
-# }
-
-# tbats_fore <- function(x, train_h, PI_level) {
-#   tbats_fit <- forecast::tbats(x, use.parallel=FALSE)
-#   tbats_fore <- forecast(tbats_fit, h = train_h, level = PI_level)
-#   tbats_fore_mean <- tbats_fore$mean
-#   #预测区间不关于点预测对称
-#   tbats_fore_sd <-
-#   return(list(tbats_fore_mean = as.numeric(tbats_fore_mean),
-#               tbats_fore_sd = as.numeric(tbats_fore_sd) ))
-# }
-
 stlm_ar_fore <- function(x, train_h, PI_level) {
   stlm_ar_fit <- tryCatch({
     forecast::stlm(x, modelfunction = stats::ar)
@@ -80,4 +66,59 @@ thetaf_fore <- function(x, train_h, PI_level) {
   thetaf_fore_sd <- (thetaf_fit$lower - thetaf_fit$mean) / qnorm(1 - PI_level /100)
   return(list(thetaf_fore_mean = as.numeric(thetaf_fore_mean),
               thetaf_fore_sd = as.numeric(thetaf_fore_sd) ))
+}
+
+#' @models in 'rugarch': garch, egarch, tgarch
+#' @details: parameters p = q = 1
+#' @param x: A \code{ts} object with the input time series
+#' @param train_h: The amount of future time steps to forecast
+#' @param PI_level: The following functions don't use it in the calculation.
+#  This is used as an input parameter to facilitate calculation with the models above.                       
+#' @export   
+                          
+garch_fore <- function(x, train_h,  PI_level) {
+  myspec=ugarchspec()
+  myfit = ugarchfit(data=x, spec = myspec, solver="hybrid")
+  fore = ugarchforecast(myfit, n.ahead=train_h)
+  garch_fore_mean <- fitted(fore)
+  garch_fore_sd <- sigma(fore)
+  return(list(garch_fore_mean = as.numeric(garch_fore_mean),
+              garch_fore_sd = as.numeric(garch_fore_sd) ))
+}
+
+egarch_fore <- function(x, train_h, PI_level) {
+  myspec=ugarchspec(
+    variance.model = list(model = "eGARCH", garchOrder = c(1, 1), submodel = NULL, 
+                          external.regressors = NULL, variance.targeting = FALSE),
+    mean.model = list(armaOrder = c(1, 1), include.mean = TRUE,
+                      archm = FALSE, archpow = 1, arfima = FALSE,
+                      external.regressors = NULL, archex = FALSE),
+    distribution.model = "norm"
+  )
+  
+  myfit = ugarchfit(myspec, data=x, solver="hybrid")
+  fore = ugarchforecast(myfit, n.ahead=train_h)
+  egarch_fore_mean <- fitted(fore)
+  egarch_fore_sd <- sigma(fore)
+  return(list(egarch_fore_mean = as.numeric(egarch_fore_mean),
+              egarch_fore_sd = as.numeric(egarch_fore_sd) ))
+}
+
+
+tgarch_fore <- function(x, train_h, PI_level) {
+  myspec=ugarchspec(
+    variance.model = list(model = "fGARCH", garchOrder = c(1, 1), submodel = "TGARCH", 
+                          external.regressors = NULL, variance.targeting = FALSE),
+    mean.model = list(armaOrder = c(1, 1), include.mean = TRUE,
+                      archm = FALSE, archpow = 1, arfima = FALSE,
+                      external.regressors = NULL, archex = FALSE),
+    distribution.model = "norm"
+  )
+  
+  myfit = ugarchfit(myspec, data=x, solver="hybrid")
+  fore = ugarchforecast(myfit, n.ahead=train_h)
+  tgarch_fore_mean <- fitted(fore)
+  tgarch_fore_sd <- sigma(fore)
+  return(list(tgarch_fore_mean = as.numeric(tgarch_fore_mean),
+              tgarch_fore_sd = as.numeric(tgarch_fore_sd) ))
 }
