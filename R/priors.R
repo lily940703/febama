@@ -2,13 +2,13 @@
 #'
 #' The detailed documentation is in the main setting file for each parameter.
 #' @title Model prior settings.
-#' @param beta list for models to be updated
-#' @param betaIdx same as beta
-#' @param varSelArgs list, same as beta length
-#' @param priArgs list, same as beta length
+#' @param beta: A list of coefficient vectors of the features
+#' @param betaIdx: A list of vectors including whether the features to be taken into
+#'     consideration. 
+#' @param varSelArgs: A list, parameter in \item{model_conf}
+#' @param priArgs: A list, parameter in \item{model_conf}
 #' @param sum logical, if TRUE, sum all conditional priors
-#' @return "list" synced
-#' @references "list"
+#' @return The prior
 #' @export
 log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 {
@@ -144,17 +144,10 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 }
 
 
-#' Gradient for the model
-#'
+
 #' Gradient for priors
-#' @param beta list for models to be updated
-#' @param betaIdx same as beta
-#' @param varSelArgs list, same as beta length
-#' @param priArgs list, same as beta length
-#' @param chainCaller
-#' @param sum logical, if TRUE, sum all conditional priors
-#' @return "list". The gradient and Hessian matrix
-#' @references NA
+#'
+#' @return A list of (number of models -1) vectors for the gradient wrt beta.
 #' @export
 log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
 {
