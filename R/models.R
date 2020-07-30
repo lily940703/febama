@@ -4,6 +4,7 @@
 #' @param x: A \code{ts} object with the input time series
 #' @param train_h: The amount of future time steps to forecast
 #' @param PI_level: Predictive Interval level, used to extract out-of-sample variance from forecasting models.
+#' @return A list including forecasting mean and sd
 #' @export
 
 ets_fore <- function(x, train_h, PI_level) {
@@ -73,7 +74,8 @@ thetaf_fore <- function(x, train_h, PI_level) {
 #' @param x: A \code{ts} object with the input time series
 #' @param train_h: The amount of future time steps to forecast
 #' @param PI_level: The following functions don't use it in the calculation.
-#  This is used as an input parameter to facilitate calculation with the models above.                       
+#  This is used as an input parameter to facilitate calculation with the models above.
+#' @return A list including forecasting mean and sd                          
 #' @export   
                           
 garch_fore <- function(x, train_h,  PI_level) {
