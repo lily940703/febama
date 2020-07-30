@@ -2,18 +2,27 @@
 #'
 #' The intercept is always included in the model.
 #' @title log predictive score with features
-#' @param beta list
-#' @param features T-by-p feature matrix, usually standardized.
-#' @param betaIdx a vector including the numbers of the features to be taken into
+#' @param data: A list (the same as the output of function \code{lpd_features_multi})
+#' \describe{
+#'   \item{lpd}{Log probability densities }
+#'   \item{feat}{Features}
+#' }
+#' @param beta: A list of coefficient vectors of the features
+#' @param betaIdx: A list of vectors including whether the features to be taken into
 #'     consideration. IF is `NULL`, no features. At this time, the intercept must be
 #' TRUE.
-#' @param prob T-by-n predictive densities.
-#' @param sum If TRUE, return the sume of log predictive densities.
-#' @return List
+#' @param features_used: parameter in \item{model_conf}.
+#' @param sum: If TRUE, return the sume of log predictive densities.
+#' @return the log predictive score
 #' @references Geweke & Amisano, (2011) Optimal prediction pools, Journal of Econometrics.
-#' @author Feng Li
+#' @author Feng Li,  Li Li
 logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
 {
+   if(!is.list(beta))
+    {
+        beta = betaVec2Lst(beta, betaIdx)
+    }
+    
     prob = exp(data$lpd)
     prob[prob == 0] <- 1e-16
 
@@ -51,15 +60,8 @@ logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
 
 #' Gradient of the log score with respect to given models
 #'
-#' The model gradient
-#' @title logscore_grad
-#' @param beta p-by-(n-1) matrix
-#' @param features T-by-p feature matrix, usually standardized.
-#' @param prob T-by-n predictive densities.
-#' @param intercept TRUE or FALSE Should intercept be used in feature weights?
-#' @param modelcaller which model components should be considered?
-#' @return p-by-length(modelcaller) matrix for the gradient.
-#' @author Feng Li
+#' @return A list of (number of models -1) vectors for the gradient wrt beta.
+#' @author Feng Li, Li Li
 logscore_grad <- function(data, beta, betaIdx, features_used, model_update = 1:length(betaIdx))
 {
 
