@@ -1,3 +1,18 @@
+#' Optimization to obtain beta and variable selection result by a MCMC method 
+#'
+#' @param data: A list (the same as the output of function \code{lpd_features_multi})
+#' \describe{
+#'   \item{lpd}{Log probability densities }
+#'   \item{feat}{Features}
+#' }
+#' @param model_conf
+#' @return A list 
+#' \describe{
+#'   \item{beta}{A list of (number of models -1) matrices of beta in every iteration }
+#'   \item{betaIdx}{A list of (number of models -1) matrices of betaIdx in every iteration}
+#'   \item{accept_prob}{A list of (number of models -1) matrices of accept probabilities in every iteration}
+#' }
+#' export
 febama_mcmc <- function(data, model_conf)
 {
     ## Extract arguments
@@ -24,22 +39,20 @@ febama_mcmc <- function(data, model_conf)
 
         OUT[["beta"]][[iComp]] = matrix(NA, nIter, nFeat + 1)
         OUT[["betaIdx"]][[iComp]] = matrix(NA, nIter, nFeat + 1)
+        OUT[["beta_detail"]][[iComp]] = list()
 
         ## Initialize variable selection indicators
         if(varSelArgs[[iComp]]$init == "all-in")
         {
             OUT[["betaIdx"]][[iComp]][1, ] = 1
-        }
-        else if (varSelArgs[[iComp]]$init == "all-out")
+        }else if (varSelArgs[[iComp]]$init == "all-out")
         {
             OUT[["betaIdx"]][[iComp]][1, ] = 0
             OUT[["betaIdx"]][[iComp]][1, 1] = 1
-        }
-        else if(varSelArgs[[iComp]]$init == "random")
+        }else if(varSelArgs[[iComp]]$init == "random")
         {
             OUT[["betaIdx"]][[iComp]][1, ] = c(1, rbinom(nFeat, 1, 0.5)) # intercept is always in.
-        }
-        else
+        }else
         {
             stop("No such init for betaIdx!")
         }
@@ -61,7 +74,10 @@ febama_mcmc <- function(data, model_conf)
                            varSelArgs = varSelArgs,
                            features_used = model_conf$features_used,
                            method = "BFGS",
-                           control = list(fnscale = -1, maxit = 10))
+                           control = list(fnscale = -1, maxit = 100))
+        if( beta_optim$convergence != 0){
+            stop("The optimization of initial values is not convergent")
+        }
         beta_curr = betaVec2Lst(beta_optim$par, betaIdx_curr)
     }
 
@@ -70,10 +86,11 @@ febama_mcmc <- function(data, model_conf)
         x[1, ] = y
         return(x)
     }, x = OUT[["beta"]], y = beta_curr, SIMPLIFY = FALSE)
-
+                       
+    if(nIter > 1){
     for (iIter in 2:nIter)
-    { # Loop start with the second iteration. The first iteration is considered as initial
-                                        # values.
+    { # Loop start with the second iteration. 
+      # The first iteration is considered as initial values.
         beta_betaIdx <-  SGLD_gibbs(data = data,  beta_curr = beta_curr,
                                     betaIdx_curr = betaIdx_curr, model_conf = model_conf)
 
@@ -81,6 +98,7 @@ febama_mcmc <- function(data, model_conf)
         beta_curr = beta_betaIdx[["beta"]]
         betaIdx_curr = beta_betaIdx[["betaIdx"]]
         accept_prob_curr = beta_betaIdx[["accept_prob"]]
+        beta_sgld_curr = beta_betaIdx[["beta_sgld"]]
 
         ## Assign the final output
         OUT[["beta"]] = mapply(function(x, y){
@@ -97,15 +115,38 @@ febama_mcmc <- function(data, model_conf)
             x[iIter, ] = y
             return(x)
         }, x = OUT[["accept_prob"]], y = beta_betaIdx[["accept_prob"]], SIMPLIFY = FALSE)
+        if(detail_out == T){
+            OUT[["beta_detail"]] = mapply(function(x, y){
+                x[[iIter]] = y
+                return(x)
+            }, x = OUT[["beta_detail"]], y = beta_betaIdx[["beta_sgld"]], SIMPLIFY = FALSE)
+            
+        }
+    }
     }
     return(OUT)
 }
 
-
+#' Calculate the log predictive score for a time series with pools of models.
+#'
+#' The intercept is always included in the model.
+#' @title log predictive score with features
+#' @param data: A list (the same as the output of function \code{lpd_features_multi})
+#' \describe{
+#'   \item{lpd}{Log probability densities }
+#'   \item{feat}{Features}
+#' }
+#' @param beta: A list of coefficient vectors of the features
+#' @param betaIdx: A list of vectors including whether the features to be taken into
+#'     consideration. IF is `NULL`, no features. At this time, the intercept must be
+#' TRUE.
+#' @param features_used: parameter in \item{model_conf}.
+#' @param sum: If TRUE, return the sume of log predictive densities.
+#' @return the log predictive score
 SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 {
     nObs = nrow(data$lpd)
-    nEpoch = model_conf$algArgs$sgld$nEpoch
+    #nEpoch = model_conf$algArgs$sgld$nEpoch
     stepsize = model_conf$algArgs$sgld$stepsize
     burninProp = model_conf$algArgs$sgld$burninProp
 
@@ -116,12 +157,15 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 
     max_batchSize = model_conf$algArgs$sgld$max_batchSize
     batchSize = min(nObs, max_batchSize)
-    nBatch = round(nObs/batchSize)
+    Batch = round(nObs/batchSize)
+    nEpoch = round(200 / nBatch)
 
     num_models_updated = ncol(data$lpd) - 1
 
     beta_prop = beta_curr
     betaIdx_prop = betaIdx_curr
+    
+    beta_sgld = list()
     for (iComp in 1:num_models_updated)
     {
         nPar_full = length(betaIdx_curr[[iComp]])
@@ -168,7 +212,7 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
             ## SGLD
             nPar1 = sum(betaIdx_prop[[iComp]]) # length of non-zero parameters
             beta_new <- (as.vector(beta_prop[[iComp]][betaIdx_prop[[iComp]] == 1] + stepsize / 2 * grad_iComp) +
-                         as.vector(rmvnorm(1, rep(0, nPar1), stepsize* diag(nPar1))))
+                         as.vector(mvtnorm::rmvnorm(1, rep(0, nPar1), stepsize* diag(nPar1))))
 
             beta_iComp_sgld[iIter, betaIdx_prop[[iComp]] == 1] = beta_new
 
@@ -179,6 +223,7 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
         ## Polyak-Ruppert averaging improve the efficiency of SGLD
         burnin = 1:(ceiling(burninProp * nEpoch * nBatch))
         beta_prop[[iComp]] = colMeans(beta_iComp_sgld[-burnin,, drop = FALSE])
+        beta_sgld[[iComp]] = beta_iComp_sgld
 
         ## Metropolis-Hasting accept/reject for variable selection
         if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
@@ -236,6 +281,7 @@ SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 
     }
 
-    out = list(beta = beta_curr, betaIdx = betaIdx_curr, accept_prob = accept_prob_curr)
+    out = list(beta = beta_curr, betaIdx = betaIdx_curr, 
+               accept_prob = accept_prob_curr, beta_sgld = beta_sgld)
     return(out)
 }
