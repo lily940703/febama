@@ -1,3 +1,4 @@
+```{r}
 num_models = 6
 model_conf_default = list(
   frequency = 12
@@ -31,3 +32,4 @@ model_conf_default = list(
   )
   
 )
+```
