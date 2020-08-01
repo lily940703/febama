@@ -4,9 +4,11 @@
 
 ## TODO
 
-- [ ] Do we need to have full cumulative time series features? We could just calculate the
+- [x] Do we need to have full cumulative time series features? We could just calculate the
       feature with a moving window.
-- [ ] Write a gradient function for the log score
-- [ ] Replace optimization function with SGD
-- [ ] Parallel the code
+- [x] Write a gradient function for the log score
+- [x] Replace optimization function with SGD
+- [ ] SGD seems not working well
+- [x] Parallel the code
 - [ ] Package the code
+- [ ] Financial applications with Garch type models
