@@ -10,16 +10,15 @@ library("base")
 library("MASS")
 
 ## Load R functions,
-setwd("E:/time series/R code/febama-master (2)/febama-master")
+setwd("E:/time series/git/febama")
 source("R/features.R")
 source("R/models.R")
 source("R/mcmc.R")
 source("R/priors.R")
 source("R/posterior.R")
 source("R/logscore.R")
-source("R/febama.R")
-source("E:/time series/R code/febama_old/R/arrange/op.R")
-source("E:/time series/R code/febama_old/R/arrange/logscore.R")
+source("R/forecast.R")
+source("R/Compare/OP.R")
 
 # model setting
 num_models = 6
@@ -59,7 +58,7 @@ model_conf_default = list(
 # data
 library(M4comp2018)
 set.seed(2020-0716)
-data_test <- M4[sample(c(47001:95000), 1000)]
+data_test <- M4[sample(c(47001:95000), 10)]
 
 # Do multi-step forecasting 
 model_conf_curr = model_conf_default
@@ -68,7 +67,7 @@ library(foreach)
 library(doParallel)
 cl <- makeCluster(3)
 registerDoParallel(cl)
-lpd_features0 <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+lpd_features0 <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   lpd_features_multi(data = data_test[[i_ts]], model_conf = model_conf_curr)
 stopCluster(cl)
 
@@ -86,14 +85,14 @@ for (i in 1:length(lpd_features)) {
 # Use MAP to obtain the optimal beta
 cl <- makeCluster(3)
 registerDoParallel(cl)
-out_us <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+out_us <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   febama_mcmc(data = lpd_features[[i_ts]], model_conf = model_conf_curr)
 stopCluster(cl)
 
 # Forecast with time-varying weights
 cl <- makeCluster(3)
 registerDoParallel(cl)
-res_us <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+res_us <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   forecast_feature_results_multi(ts = data_test[[i_ts]], model_conf = model_conf_curr, 
                                  data = lpd_features[[i_ts]], beta_out = out_us[[i_ts]])
 stopCluster(cl)
@@ -114,13 +113,13 @@ lpd_features[[676]]$lpd[116,] = rep(0,6)
 #Comepare with OP and SA
 cl <- makeCluster(3)
 registerDoParallel(cl)
-out_op <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+out_op <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   optim_beta(lpd_feature = lpd_features[[i_ts]], features_y = NULL)
 stopCluster(cl)
 
 cl <- makeCluster(3)
 registerDoParallel(cl)
-res_op <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+res_op <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   forecast_results_nofea(data = data_test[[i_ts]], model_conf = model_conf_curr, 
                          optimal_beta = out_op[[i_ts]])
 stopCluster(cl)
