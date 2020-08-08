@@ -117,7 +117,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
             ## Calculate the log density
             if(Idx0Len == 0L)
             {   ## 1. all are selected or Switch to unconditional prior.
-                out[[iComp]][["beta"]] <- dmvnorm(matrix(betaCurr, nrow = 1), meanVec, coVar, log = TRUE)
+                out[[iComp]][["beta"]] <- mvtnorm::dmvnorm(matrix(betaCurr, nrow = 1), meanVec, coVar, log = TRUE)
             }
             else
             {  ## 2. some are selected (at least the intercept is always selected ) Using the conditional prior
@@ -125,7 +125,7 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
                 condMean <- meanVec[Idx1] - A%*%meanVec[Idx0]
                 condCovar <- coVar[Idx1, Idx1] - A%*%coVar[Idx0, Idx1]
 
-                out[[iComp]][["beta"]] <- dmvnorm(matrix(betaCurr[Idx1], nrow = 1), condMean, condCovar, log = TRUE)
+                out[[iComp]][["beta"]] <- mvtnorm::dmvnorm(matrix(betaCurr[Idx1], nrow = 1), condMean, condCovar, log = TRUE)
             }
         }
         else
