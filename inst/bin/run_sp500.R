@@ -15,16 +15,15 @@ library(doParallel)
 library(foreach)
 
 ## Load R functions,
-setwd("E:/time series/R code/febama-master (2)/febama-master")
+setwd("E:/time series/git/febama")
 source("R/features.R")
 source("R/models.R")
 source("R/mcmc.R")
 source("R/priors.R")
 source("R/posterior.R")
 source("R/logscore.R")
-source("R/febama.R")
-source("E:/time series/R code/febama_old/R/arrange/op.R")
-source("E:/time series/R code/febama_old/R/arrange/logscore.R")
+source("R/forecast.R")
+source("R/Compare/OP.R")
 
 # Data
 library(tidyquant)
