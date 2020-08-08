@@ -9,7 +9,7 @@
 
 ets_fore <- function(x, train_h, PI_level) {
   ets_fit <- forecast::ets(x, model = "ANN")
-  ets_fore <- forecast(ets_fit, h = train_h, level = PI_level)
+  ets_fore <- forecast::forecast(ets_fit, h = train_h, level = PI_level)
   ets_fore_mean <- ets_fore$mean
   ets_fore_sd <- (ets_fore$lower - ets_fore$mean) / qnorm(1 - PI_level / 100)
   return(list(ets_fore_mean = as.numeric(ets_fore_mean),
@@ -18,7 +18,7 @@ ets_fore <- function(x, train_h, PI_level) {
 
 auto.arima_fore <- function(x, train_h, PI_level) {
   arima_fit <- forecast::auto.arima(x)
-  arima_fore <- forecast(arima_fit, h = train_h, level = PI_level)
+  arima_fore <- forecast::forecast(arima_fit, h = train_h, level = PI_level)
   arima_fore_mean <- arima_fore$mean
   arima_fore_sd <- (arima_fore$lower - arima_fore$mean) / qnorm(1 - PI_level /100)
   return(list(arima_fore_mean = as.numeric(arima_fore_mean),
@@ -54,7 +54,7 @@ stlm_ar_fore <- function(x, train_h, PI_level) {
   stlm_ar_fit <- tryCatch({
     forecast::stlm(x, modelfunction = stats::ar)
   }, error = function(e) forecast::auto.arima(x, d=0,D=0))
-  stlm_ar_fore <- forecast(stlm_ar_fit, h = train_h, level = PI_level)
+  stlm_ar_fore <- forecast::forecast(stlm_ar_fit, h = train_h, level = PI_level)
   stlm_ar_fore_mean <- stlm_ar_fore$mean
   stlm_ar_fore_sd <- (stlm_ar_fore$lower - stlm_ar_fore$mean) / qnorm(1 - PI_level /100)
   return(list(stlm_ar_fore_mean = as.numeric(stlm_ar_fore_mean),
