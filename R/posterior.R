@@ -40,6 +40,37 @@ log_posterior <- function(data, beta, betaIdx, priArgs, varSelArgs, features_use
     return(out)
 }
 
+
+#' When only optimize the coefficients of a particular model
+log_posterior_comp <- function(data, beta_comp, beta, betaIdx, priArgs, varSelArgs, 
+                               features_used, model_update)
+{
+    beta_list = beta
+    
+    ## Special case to allow for vector beta, used in optim MAP
+    if(!is.list(beta))
+    {
+        beta_list = betaVec2Lst(beta, betaIdx)
+    }
+    
+    ## log prior with conditional
+    lpri = log_priors(beta = list(beta_comp),
+                      betaIdx = betaIdx[model_update],
+                      varSelArgs = varSelArgs[model_update],
+                      priArgs = priArgs[model_update], sum = TRUE)
+    
+    ## log score (log likelihood)
+    lscore <- logscore_comp(data = data,
+                       beta_comp = beta_comp,
+                       beta = beta_list,
+                       betaIdx = betaIdx,
+                       features_used = features_used,
+                       model_update = model_update,
+                       sum = TRUE)
+    out <- lpri + lscore
+    return(out)
+}
+
 #' Gradient of the log posterior with respect to given models
 #'
 #' @return A list of (number of models -1) vectors for the gradient wrt beta.
@@ -78,6 +109,7 @@ betaVec2Lst = function(beta, betaIdx)
     {
         b = a + length(betaIdx[[iComp]]) - 1
         beta_list[[iComp]] = beta[a:b]
+        beta_list[[iComp]][betaIdx[[iComp]] == 0] = 0
         a = b + 1
     }
 
