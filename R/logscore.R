@@ -58,6 +58,50 @@ logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
     return(out)
 }
 
+#' When only optimize the coefficients of a particular model
+logscore_comp <- function(data, beta_comp, beta, betaIdx, features_used, sum = TRUE, model_update)
+{
+    if(!is.list(beta))
+    {
+        beta = betaVec2Lst(beta, betaIdx)
+    }
+    
+    prob = exp(data$lpd)
+    prob[prob == 0] <- 1e-16
+    
+    num_models_updated <- length(betaIdx)
+    nObs = nrow(prob)
+    
+    exp_lin = matrix(NA, nObs, num_models_updated + 1)
+    
+    for(iComp in 1:num_models_updated)
+    {
+        if(iComp == model_update){
+            betaCurr = beta_comp
+        }else{
+            betaCurr = beta[[iComp]]
+        }
+        betaIdxCurr = betaIdx[[iComp]]
+        features_used_curr = features_used[[iComp]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
+        
+        me <- features0[, betaIdxCurr == 1, drop = FALSE] %*% matrix(betaCurr[betaIdxCurr == 1])
+        me[me>709] <- 709 # avoid overflow
+        exp_lin[, iComp] = exp(me)
+    }
+    
+    exp_lin[, num_models_updated + 1] = 1 # assume last model is 1
+    weights <- exp_lin/ rowSums(exp_lin) # T-by-n, assuming last is deterministic
+    out = log(rowSums(weights * prob))
+    
+    if(sum == TRUE)
+    {
+        out = sum(out)
+    }
+    
+    return(out)
+}
+
 #' Gradient of the log score with respect to given models
 #'
 #' @return A list of (number of models -1) vectors for the gradient wrt beta.
