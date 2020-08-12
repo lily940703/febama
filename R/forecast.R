@@ -86,9 +86,12 @@ forecast_feature_results_multi <-function(ts, model_conf = model_conf_curr, inte
             myfeatures_scaled = NULL
         }
 
-        #w_full <- w_get(beta_out, myfeatures_scaled, model_conf = model_conf)
-        w_full <- w_get_ini(beta_out, myfeatures_scaled, model_conf = model_conf)
-
+        if(model_conf$algArgs$nIter > 1){
+            w_full <- w_get(beta_out, myfeatures_scaled, model_conf = model_conf)
+        }else if(model_conf$algArgs$nIter == 1){
+            w_full <- w_get_ini(beta_out, myfeatures_scaled, model_conf = model_conf)
+        }
+        
         w_full_all[[t]] <- w_full
         w_full_mean <- colMeans(w_full)
         w_full_mean_h <- cbind(w_full_mean_h, w_full_mean)

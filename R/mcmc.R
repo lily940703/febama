@@ -73,7 +73,7 @@ febama_mcmc <- function(data, model_conf)
                            varSelArgs = varSelArgs,
                            features_used = model_conf$features_used,
                            method = "BFGS",
-                           control = list(fnscale = -1, maxit = 100))
+                           control = list(fnscale = -1, maxit = 1000))
         if( beta_optim$convergence != 0){
             stop("The optimization of initial values is not convergent")
         }
@@ -140,6 +140,7 @@ MAP_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 {
 
     priArgs = model_conf$priArgs
+    varSelArgs = model_conf$ varSelArgs
 
     features_used = model_conf$features_used
 
@@ -163,7 +164,7 @@ MAP_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
                            features_used = model_conf$features_used,
                            model_update = iComp,
                            method = "BFGS",
-                           control = list(fnscale = -1, maxit = 100))
+                           control = list(fnscale = -1, maxit = 1000))
         if( beta_optim$convergence != 0){
           stop("The optimization of MAP is not convergent")
         }
