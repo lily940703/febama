@@ -42,8 +42,8 @@ model_conf_default = list(
                             "betaIdx" = list(type = "beta", alpha0 = 1, beta0 = 1))), num_models - 1)
   
   , algArgs = list(initOptim = TRUE, 
-                   algName = "sgld", 
-                   nIter = 1, 
+                   algName = "MAP", 
+                   nIter = 20, 
                    "sgld" = list(max_batchSize = 108,
                                  nEpoch = 10,
                                  burninProp = 0.4, 
@@ -58,7 +58,7 @@ model_conf_default = list(
 # data
 library(M4comp2018)
 set.seed(2020-0716)
-data_test <- M4[sample(c(47001:95000), 10)]
+data_test <- M4[sample(c(47001:95000), 1000)]
 
 # Do multi-step forecasting 
 model_conf_curr = model_conf_default
@@ -67,7 +67,7 @@ library(foreach)
 library(doParallel)
 cl <- makeCluster(3)
 registerDoParallel(cl)
-lpd_features0 <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+lpd_features0 <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   lpd_features_multi(data = data_test[[i_ts]], model_conf = model_conf_curr)
 stopCluster(cl)
 
@@ -85,14 +85,14 @@ for (i in 1:length(lpd_features)) {
 # Use MAP to obtain the optimal beta
 cl <- makeCluster(3)
 registerDoParallel(cl)
-out_us <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+out_us <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   febama_mcmc(data = lpd_features[[i_ts]], model_conf = model_conf_curr)
 stopCluster(cl)
 
 # Forecast with time-varying weights
 cl <- makeCluster(3)
 registerDoParallel(cl)
-res_us <- foreach(i_ts = 1:10, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
+res_us <- foreach(i_ts = 1:1000, .packages = "M4metalearning", .export = model_conf_curr$fore_model) %dopar%
   forecast_feature_results_multi(ts = data_test[[i_ts]], model_conf = model_conf_curr, 
                                  data = lpd_features[[i_ts]], beta_out = out_us[[i_ts]])
 stopCluster(cl)
@@ -104,6 +104,9 @@ for (i in 1:length(res_us)) {
 }
 print("The logscore, mase and smape of our method(with features) are")
 colMeans(res_us_comb)
+
+save(lpd_features0, file = "E:/time series/git/DATA/M4_mon1000_lpd_features.RData")
+save(lpd_features0, out_us, res_us, file = "E:/time series/git/DATA/M4_mon1000_MAP+VS.RData")
 
 # Monthly
 lpd_features[[40]]$lpd[240,] = rep(0,6)
