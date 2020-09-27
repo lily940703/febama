@@ -15,8 +15,24 @@ lpd_features_multi <- function(data, model_conf) {
     y_mean = attr(y1, "scaled:center")
     y_sd = attr(y1, "scaled:scale")
     y1 = as.numeric(y1)
-    history_burn = model_conf$history_burn
-    train_h = model_conf$train_h
+    
+    ## if some subseries are constant, reset history_burn to
+    ## ensure the subseries can be scaled when computing features
+    burn = 0
+    for (t in 1:length(y1)) {
+        if(y1[t] == y1[1]){ 
+            burn = burn+1
+        }else{
+                break;
+            }
+    }
+    if(burn >= model_conf$history_burn -1){
+        history_burn = burn+2
+    }else{
+        history_burn = model_conf$history_burn
+    }
+    
+        train_h = model_conf$train_h
     
     if(model_conf$lpd_features_parl$par == F){
         lpd_features = lpd_feat(t_seq = c((history_burn):(length(y) - train_h)), 
@@ -65,7 +81,6 @@ lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf ){
     feature_window = model_conf$feature_window
     roll = model_conf$roll
     frequency = model_conf$frequency
-    history_burn = model_conf$history_burn
     ets_model = model_conf$ets_model
     forecast_h = model_conf$forecast_h
     train_h = model_conf$train_h
