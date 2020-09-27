@@ -107,20 +107,38 @@ egarch_fore <- function(x, train_h, PI_level) {
 }
 
 
-tgarch_fore <- function(x, train_h, PI_level) {
-  myspec=ugarchspec(
-    variance.model = list(model = "fGARCH", garchOrder = c(1, 1), submodel = "TGARCH", 
-                          external.regressors = NULL, variance.targeting = FALSE),
-    mean.model = list(armaOrder = c(1, 1), include.mean = TRUE,
-                      archm = FALSE, archpow = 1, arfima = FALSE,
-                      external.regressors = NULL, archex = FALSE),
-    distribution.model = "norm"
-  )
-  
-  myfit = ugarchfit(myspec, data=x, solver="hybrid")
-  fore = ugarchforecast(myfit, n.ahead=train_h)
-  tgarch_fore_mean <- fitted(fore)
-  tgarch_fore_sd <- sigma(fore)
-  return(list(tgarch_fore_mean = as.numeric(tgarch_fore_mean),
-              tgarch_fore_sd = as.numeric(tgarch_fore_sd) ))
+# tgarch_fore <- function(x, train_h, PI_level) {
+#   myspec=ugarchspec(
+#     variance.model = list(model = "fGARCH", garchOrder = c(1, 1), submodel = "TGARCH", 
+#                           external.regressors = NULL, variance.targeting = FALSE),
+#     mean.model = list(armaOrder = c(1, 1), include.mean = TRUE,
+#                       archm = FALSE, archpow = 1, arfima = FALSE,
+#                       external.regressors = NULL, archex = FALSE),
+#     distribution.model = "norm"
+#   )
+#   
+#   myfit = ugarchfit(myspec, data=x, solver="hybrid")
+#   fore = ugarchforecast(myfit, n.ahead=train_h)
+#   tgarch_fore_mean <- fitted(fore)
+#   tgarch_fore_sd <- sigma(fore)
+#   return(list(tgarch_fore_mean = as.numeric(tgarch_fore_mean),
+#               tgarch_fore_sd = as.numeric(tgarch_fore_sd) ))
+# }
+
+#' @models in 'stochvol': sv
+#' @details: default parameters 
+#' @param x: A \code{ts} object with the input time series
+#' @param train_h: The amount of future time steps to forecast
+#' @param PI_level: The following functions don't use it in the calculation.
+#  This is used as an input parameter to facilitate calculation with the models above.
+#' @return A list including forecasting mean and sd                          
+#' @export   
+sv_fore <- function(x, train_h,  PI_level) {
+  myfit = svsample(y = x, quiet	= T)
+  fore = predict(myfit, train_h)
+  sv_fore_mean <- mean(fore$y)
+  sv_fore_sd <- sqrt(mean(exp(fore$h)))
+  return(list(sv_fore_mean = as.numeric(sv_fore_mean),
+              sv_fore_sd = as.numeric(sv_fore_sd) ))
 }
+
