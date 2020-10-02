@@ -34,20 +34,30 @@ forecast_feature_results_multi <-function(ts, model_conf = model_conf_curr, inte
     train_h = model_conf$train_h
     PI_level = model_conf$PI_level
     fore_model = model_conf$fore_model
+    ts_scale = model_conf$ts_scale
 
 
     ## forecasting
     y_hat_matrix <- matrix(ncol = forecast_h, nrow = 1)
 
     y <- ts$x
-    y01 = scale(y, center = TRUE, scale = TRUE)
-    y_mean = attr(y01, "scaled:center")
-    y_sd = attr(y01, "scaled:scale")
-    y01 = as.numeric(y01)
     y_true = ts$xx
-    y01_true = as.numeric(scale(y_true, center = y_mean, scale = y_sd))
-    y_new = y01
-    y_new_nonsd = as.numeric(y)
+    
+    if (ts_scale == T){
+        y01 = scale(y, center = TRUE, scale = TRUE)
+        y_mean = attr(y01, "scaled:center")
+        y_sd = attr(y01, "scaled:scale")
+        y01 = as.numeric(y01)
+        y01_true = as.numeric(scale(y_true, center = y_mean, scale = y_sd))
+        y_new = y01
+        y_new_nonsd = as.numeric(y)
+    }else{
+        y_mean = 0
+        y_sd =1
+        y01_true = y_true
+        y_new = as.numeric(y)
+        y_new_nonsd = as.numeric(y)
+    }
     
     if(length(model_conf$features_used[[1]]) == 0){
         features_y = NULL
