@@ -11,10 +11,14 @@
 lpd_features_multi <- function(data, model_conf) {
 
     y <- data$x
-    y1 = scale(y, center = TRUE, scale = TRUE)
-    y_mean = attr(y1, "scaled:center")
-    y_sd = attr(y1, "scaled:scale")
-    y1 = as.numeric(y1)
+    if (model_conf$ts_scale == T){
+        y1 = scale(y, center = TRUE, scale = TRUE)
+        y_mean = attr(y1, "scaled:center")
+        y_sd = attr(y1, "scaled:scale")
+        y1 = as.numeric(y1)
+    }else{
+        y1 = as.numeric(y)
+    }
     
     ## if some subseries are constant, reset history_burn to
     ## ensure the subseries can be scaled when computing features
@@ -32,11 +36,12 @@ lpd_features_multi <- function(data, model_conf) {
         history_burn = model_conf$history_burn
     }
     
-        train_h = model_conf$train_h
+    train_h = model_conf$train_h
     
     if(model_conf$lpd_features_parl$par == F){
         lpd_features = lpd_feat(t_seq = c((history_burn):(length(y) - train_h)), 
-                                ts_sd = y1, ts_nosd = y, model_conf = model_conf)
+                                ts_sd = y1, ts_nosd = y, model_conf = model_conf, 
+                                history_burn = history_burn)
         lpd_features$feat = scale(lpd_features$feat, center = TRUE, scale = TRUE)
         
     }else{
@@ -62,7 +67,8 @@ lpd_features_multi <- function(data, model_conf) {
         registerDoParallel(cl)
         lpd_features0 = foreach::foreach(i = 1:ncores, .packages = c("rugarch","M4metalearning"), 
                                          .export = c("lpd_feat", model_conf$fore_model))%dopar%
-            lpd_feat(t_seq = t_seqs[[i]], ts_sd = y1, ts_nosd = y, model_conf = model_conf)
+            lpd_feat(t_seq = t_seqs[[i]], ts_sd = y1, ts_nosd = y,
+                     model_conf = model_conf, history_burn = history_burn)
         stopCluster(cl)
         # lpd_features0 = lapply(t_seqs, lpd_feat, ts_sd = y1, ts_nosd = y, 
         #                        model_conf = model_conf)
@@ -77,7 +83,7 @@ lpd_features_multi <- function(data, model_conf) {
 }
 
                        
-lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf ){
+lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf, history_burn ){
     feature_window = model_conf$feature_window
     roll = model_conf$roll
     frequency = model_conf$frequency
@@ -149,6 +155,8 @@ lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf ){
     lpd_features <- list(lpd = log_pred_densities, feat = features_y)
     return(lpd_features)
 }
+
+
 
 
 #' Delete the features with NaN and add attributes
