@@ -134,6 +134,7 @@ egarch_fore <- function(x, train_h, PI_level) {
 #' @return A list including forecasting mean and sd                          
 #' @export   
 sv_fore <- function(x, train_h,  PI_level) {
+  options(warn =-1)
   myfit = svsample(y = x, quiet	= T)
   fore = predict(myfit, train_h)
   sv_fore_mean <- mean(fore$y)
