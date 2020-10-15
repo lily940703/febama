@@ -52,7 +52,14 @@ lpd_features_multi <- function(data, model_conf) {
         }
         
         t_seq = c((history_burn):(length(y) - train_h))
-        num_block = floor(length(t_seq)/ncores)
+        num_block = ceiling(length(t_seq)/ncores)
+        for (ncores0 in 1:ncores) {
+            if (ncores0*num_block >= length(t_seq) & 
+                (ncores0-1)*num_block < length(t_seq)){
+               break
+            }
+        }
+        ncores = ncores0
         t_seqs = list()
         for (i in 1:ncores) {
             if(i != ncores){
@@ -81,7 +88,6 @@ lpd_features_multi <- function(data, model_conf) {
     
     return(lpd_features)
 }
-
                        
 lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf, history_burn ){
     feature_window = model_conf$feature_window
