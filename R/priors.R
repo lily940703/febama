@@ -1,14 +1,15 @@
-#' This is the prior settings for a variable selection scheme
+#' Calculate the log joint prior
 #'
-#' The detailed documentation is in the main setting file for each parameter.
-#' @title Model prior settings.
-#' @param beta: A list of coefficient vectors of the features
-#' @param betaIdx: A list of vectors including whether the features to be taken into
-#'     consideration. 
-#' @param varSelArgs: A list, parameter in \item{model_conf}
-#' @param priArgs: A list, parameter in \item{model_conf}
-#' @param sum logical, if TRUE, sum all conditional priors
-#' @return The prior
+#' Calculate the log joint prior of  indicator vectors and  coefficient vectors.
+#' See \code{model_conf_default} for more information of parameter settings.
+#' 
+#' @param beta A list of coefficient vectors of the features.
+#' @param betaIdx A list of indicator vectors. 
+#' @param varSelArgs Variable selection settings.
+#' @param priArgs Parameter settings in the priors of \code{beta} and \code{betaIdx}.
+#' @param sum Logical, if TRUE, sum all conditional priors.
+#' 
+#' @return \code{log_priors} returns the value of log joint prior.
 #' @export
 log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 {
@@ -145,10 +146,8 @@ log_priors <- function(beta, betaIdx, varSelArgs, priArgs, sum = TRUE)
 
 
 
-#' Gradient for priors
-#'
-#' @return A list of (number of models -1) vectors for the gradient wrt beta.
-#' @export
+# Gradient for priors
+
 log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
 {
     num_models_updated = length(betaIdx)
@@ -221,3 +220,4 @@ log_priors_grad <- function(beta, betaIdx, varSelArgs, priArgs)
 
     return(out)
 }
+
