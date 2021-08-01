@@ -1,12 +1,11 @@
-#' Compute log predictive density and features
-#' @param data: A list with \item{x}{A time series object \code{ts} with the historical data.}
-#' @param model_conf 
-#' @return A list 
-#' \describe{
-#'   \item{lpd}{Log probability densities of the historical data}
-#'   \item{feat}{Features calculated from rolling historical data.}
-#' }
-#' @author Feng Li
+#' Compute log predictive densities and features
+#' 
+#' Compute log predictive densities and features for training in FEBAMA framework.
+#' 
+#' @param data A list with related information of a time series. Historical data \code{x} is neccessary.
+#' @param model_conf Parameter settings of FEBAMA framework. Defualt \code{model_conf_default()}.
+#' 
+#' @return A list with log predictive densities and features.
 #' @export
 lpd_features_multi <- function(data, model_conf) {
 
@@ -72,8 +71,18 @@ lpd_features_multi <- function(data, model_conf) {
         #                         model_conf = model_conf, mc.cores = ncores)
         cl <- makeCluster(ncores)
         registerDoParallel(cl)
+       
         lpd_features0 = foreach::foreach(i = 1:ncores, .packages = c("rugarch","M4metalearning"), 
                                          .export = c("lpd_feat", model_conf$fore_model))%dopar%
+            ## "R.utils"
+            # withTimeout({
+            #     lpd_feat(t_seq = t_seqs[[i]], ts_sd = y1, ts_nosd = y,
+            #          model_conf = model_conf, history_burn = history_burn)
+            # }, timeout = 30.00, substitute = FALSE, onTimeout = "error",
+            # TimeoutException = function(ex) {
+            #     options(warn = 1)
+            #     warning("Timeout in part: ", i)
+            # })
             lpd_feat(t_seq = t_seqs[[i]], ts_sd = y1, ts_nosd = y,
                      model_conf = model_conf, history_burn = history_burn)
         stopCluster(cl)
@@ -83,11 +92,13 @@ lpd_features_multi <- function(data, model_conf) {
         feats = lapply(lpd_features0, function(x) x$feat)
         lpd_features = list(lpd = do.call(rbind, lpds), feat = do.call(rbind, feats))
         lpd_features$feat = scale(lpd_features$feat, center = TRUE, scale = TRUE)
-        
+        rm(lpds)
+        rm(feats)
     }
     
     return(lpd_features)
 }
+
                        
 lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf, history_burn ){
     feature_window = model_conf$feature_window
@@ -123,10 +134,13 @@ lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf, history_burn ){
                              mean = mean_sd[[1]],sd = mean_sd[[2]],log = TRUE ))
             return(lpd)
         })
+        rm(use_model)
         log_pred_den <- as.numeric(log_pred_den)
         log_pred_den[log_pred_den < log(1e-323)] <- log(1e-323)
         log_pred_den[log_pred_den > log(1e+308)] <- log(1e+308)
         log_pred_densities[(t - t_seq[1] + 1), ] <- log_pred_den
+        # options(warn = 1)
+        # warning("The forecasting models of time ", t, " finished!")
     }
     
     ## Calculate historical features
@@ -159,17 +173,17 @@ lpd_feat = function(t_seq, ts_sd, ts_nosd, model_conf, history_burn ){
         }
     }
     lpd_features <- list(lpd = log_pred_densities, feat = features_y)
+    rm(log_pred_densities)
+    rm(features_y)
     return(lpd_features)
 }
 
 
-
-
 #' Delete the features with NaN and add attributes
 #'
-#' @param lpd_features: A list of multi outputs of function \code{lpd_features_multi}
-#' @return final features 
-#' @author Feng Li
+#' @param lpd_features A list of several outputs of \code{lpd_features_multi}.
+#' 
+#' @return A list with log predictive densities and features. 
 #' @export
 feature_clean <- function(lpd_features){
     for (i_ts in 1:length(lpd_features)) {
@@ -180,3 +194,4 @@ feature_clean <- function(lpd_features){
     }
     return(lpd_features)
 }
+
