@@ -1,18 +1,20 @@
-#' Optimization to obtain beta and variable selection result by a MCMC method 
+#' Inference procedure of FEBAMA framework
+#' 
+#' In the inference procedure, we take the MAP estimation with the standard BFGS algorithm.
+#' If variable selection is considered (\code{model_conf$algArgs$nIter > 1}) simultaneously with MAP, 
+#' we utilize the Gibbs sampler to perform variable selection over all forecasting models.  
 #'
-#' @param data: A list (the same as the output of function \code{lpd_features_multi})
+#' @param data A list with \code{lpd} and \code{feat} 
+#' (the output of function \code{lpd_features_multi}).
+#' @param model_conf Parameter settings of FEBAMA framework. Defualt \code{model_conf_default()}.
+#' 
+#' @return \code{febama_mcmc} returns a list with the entries:
 #' \describe{
-#'   \item{lpd}{Log probability densities }
-#'   \item{feat}{Features}
+#'   \item{beta}{A list of (number of models -1) matrices of beta in every iteration. }
+#'   \item{betaIdx}{A list of (number of models -1) matrices of betaIdx in every iteration.}
+#'   \item{accept_prob}{A list of (number of models -1) matrices of accept probabilities in every iteration.}
 #' }
-#' @param model_conf
-#' @return A list 
-#' \describe{
-#'   \item{beta}{A list of (number of models -1) matrices of beta in every iteration }
-#'   \item{betaIdx}{A list of (number of models -1) matrices of betaIdx in every iteration}
-#'   \item{accept_prob}{A list of (number of models -1) matrices of accept probabilities in every iteration}
-#' }
-#' export
+#' @export
 febama_mcmc <- function(data, model_conf)
 {
     ## Extract arguments
@@ -90,6 +92,8 @@ febama_mcmc <- function(data, model_conf)
     for (iIter in 2:nIter)
     { # Loop start with the second iteration. 
       # The first iteration is considered as initial values.
+      
+      # SGLD did not seem to work well in our experiments, so we use simple MAP here. 
       if(algArgs$algName == "sgld"){
         beta_betaIdx <-  SGLD_gibbs(data = data,  beta_curr = beta_curr,
                                     betaIdx_curr = betaIdx_curr, model_conf = model_conf)
@@ -125,17 +129,7 @@ febama_mcmc <- function(data, model_conf)
 }
 
 
-#' @title Variable selection using MAP with Gibbs
-#' @param data: A list (the same as the output of function \code{lpd_features_multi})
-#' \describe{
-#'   \item{lpd}{Log probability densities }
-#'   \item{feat}{Features}
-#' }
-#' @param beta_curr: A list of coefficient vectors of the features (The initial value of a variable selection)
-#' @param betaIdx_curr: A list of vectors including whether the features to be taken into
-#'     consideration. (The initial value of a variable selection)
-#' @param model_conf
-#' @return A list (result of variable selection)
+# Variable selection using MAP with Gibbs
 MAP_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
 {
 
