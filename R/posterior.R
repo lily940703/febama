@@ -1,18 +1,17 @@
-#' Calculate the log posterior for a time series.
+#' Calculate the log posterior
 #'
-#' @param data: A list (the same as the input of function \code{logscore})
-#' \describe{
-#'   \item{lpd}{Log probability densities }
-#'   \item{feat}{Features}
-#' }
-#' @param beta: A list of coefficient vectors of the features
-#' @param betaIdx: A list of vectors including whether the features to be taken into
-#'     consideration. IF is `NULL`, no features. At this time, the intercept must be
-#' TRUE.
-#' @param priArgs: parameter in \item{model_conf}.
-#' @param varSelArgs: parameter in \item{model_conf}.
-#' @param features_used: parameter in \item{model_conf}.
-#' @return the log posterior
+#' Calculate the log posterior of  unknown parameters in FEBAMA framework.
+#' See \code{model_conf_default} for more information of parameter settings.
+#'
+#' @param data A list with \code{lpd} and \code{feat} 
+#' (the output of function \code{lpd_features_multi}).
+#' @param beta A list of coefficient vectors of the features.
+#' @param betaIdx A list of indicator vectors.
+#' @param varSelArgs Variable selection settings.
+#' @param priArgs Parameter settings in the priors of \code{beta} and \code{betaIdx}.
+#' @param features_used The features used for forecast combination. 
+#' 
+#' @return \code{log_posterior} returns the value of log posterior.
 #' @export
 log_posterior <- function(data, beta, betaIdx, priArgs, varSelArgs, features_used, model_update = 1:length(betaIdx))
 {
@@ -41,7 +40,7 @@ log_posterior <- function(data, beta, betaIdx, priArgs, varSelArgs, features_use
 }
 
 
-#' When only optimize the coefficients of a particular model
+# When only optimize the coefficients of a particular model
 log_posterior_comp <- function(data, beta_comp, beta, betaIdx, priArgs, varSelArgs, 
                                features_used, model_update)
 {
@@ -71,10 +70,8 @@ log_posterior_comp <- function(data, beta_comp, beta, betaIdx, priArgs, varSelAr
     return(out)
 }
 
-#' Gradient of the log posterior with respect to given models
-#'
-#' @return A list of (number of models -1) vectors for the gradient wrt beta.
-#' @export
+# Gradient of the log posterior with respect to given models
+
 log_posterior_grad <- function(data, beta, betaIdx, priArgs, varSelArgs, features_used,
                                model_update = 1:length(betaIdx), batchRatio = 1)
 {
@@ -96,11 +93,9 @@ log_posterior_grad <- function(data, beta, betaIdx, priArgs, varSelArgs, feature
     return(out)
 }
 
-#' Transform beta (if a vector) into a list consistent with the format of the inputs of 
-#' functions \code{logscore, log_priors, log_posterior...} 
-#'
-#' @return A list of (number of models -1) coefficient vectors of the features
-#' @export
+# Transform beta (if a vector) into a list consistent with the format of the inputs of 
+# functions logscore, log_priors and log_posterior.
+
 betaVec2Lst = function(beta, betaIdx)
 {
     beta_list = list()
@@ -115,3 +110,4 @@ betaVec2Lst = function(beta, betaIdx)
 
     return(beta_list)
 }
+
