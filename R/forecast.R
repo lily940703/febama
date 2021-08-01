@@ -1,26 +1,29 @@
-#' Forecasting with our method.
+#' Forecasting with FEBAMA
+#' 
+#' Forecast based on FEBAMA framework and obtain error measures.
 #'
-#' @param ts: A list (the time series to be predicted})
+#' @param ts A list with related information of a time series:
 #' \describe{
-#'   \item{x}{historical data}
-#'   \item{xx}{real data in the forecasting horizon}
+#'   \item{x}{Historical data.}
+#'   \item{xx}{Real data in the forecasting horizon.}
 #' }
-#' @param model_conf
-#' @param data:A list 
+#' @param model_conf Parameter settings of FEBAMA framework. Defualt \code{model_conf_default()}.
+#' @param data A list with
 #' \describe{
-#'   \item{lpd}{Log probability densities }
-#'   \item{feat}{Features}
-#'   \item{feat_mean}{the mean of features from historical data}
-#'   \item{feat_sd}{the sd of features from historical data}
+#'   \item{lpd}{Log probability densities from historical data.}
+#'   \item{feat}{Features from historical data.}
+#'   \item{feat_mean}{The mean of features.}
+#'   \item{feat_sd}{The sd of features.}
 #' }
-#' @param beta_out: the output of function \code{febama_mcmc}
-#' @return A list  
+#' @param beta_out The output of function \code{febama_mcmc}.
+#' 
+#' @return \code{forecast_feature_results_multi} returns a list with the entries:  
 #' \describe{
-#'   \item{err_feature}{log score, mase, smape measure of forecasts}
-#'   \item{ff_feature}{forecasts in the forecasting horizon}
-#'   \item{w_time_varying}{time-varying weights in the forecasting horizon}
+#'   \item{err_feature}{Log score, mase, smape measures of forecasts.}
+#'   \item{ff_feature}{Forecast values in the forecasting horizon.}
+#'   \item{w_time_varying}{Time-varying weights in the forecasting horizon.}
 #' }
-#' export
+#' @export
 
 forecast_feature_results_multi <-function(ts, model_conf = model_conf_curr, intercept = T,
                                           data, beta_out)
@@ -162,8 +165,7 @@ forecast_feature_results_multi <-function(ts, model_conf = model_conf_curr, inte
     return(ts)
 }
 
-#' Compute the weights of models based on beta(after optimization by MCMC) and features
-#' export
+# Compute the average weights based on the optimal parameters obtained from variable selections.
 w_get <- function(beta_out, myfeatures_scaled, model_conf){
     
     num_models_updated = length(model_conf$fore_model)-1
@@ -186,9 +188,7 @@ w_get <- function(beta_out, myfeatures_scaled, model_conf){
     return(weights)
 }
 
-#' Compute the weights of models based on beta and features
-#' If only use the initial value (MAP) in \code{febama_mcmc}
-#' export
+# Compute the weights based on the optimal parameters obtained from the initial optimization (without variable selection).
 w_get_ini <- function(beta_out, myfeatures_scaled, model_conf){
     
     num_models_updated = length(model_conf$fore_model)-1
@@ -211,10 +211,7 @@ w_get_ini <- function(beta_out, myfeatures_scaled, model_conf){
     return(weights)
 }
 
-#' Output comprehensive forecast performance (average)
-#' @param data: A list of multiple ts with \item{err_feature}
-#' @return A vector of "Log score","Mase" and "Smape".
-#' export
+# Output comprehensive forecast performance (average)
 forecast_feature_performance<-function(data)
 {
     ## log score
