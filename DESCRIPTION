@@ -7,6 +7,13 @@ Author: Li Li, Feng Li, Yanfei Kang
 Maintainer: Li Li
 Description: This package describes a novel framework for density forecast combination by constructing time-varying weights based on time series features. The method estimates weights in the forecast combination via Bayesian log predictive scores from historical information. 
 License: GPL (>=2.0)
+Imports: tsfeatures,
+         M4metalearning,
+         forecast,
+         mvtnorm,
+         parallel,
+         doParallel,
+         foreach
 LazyLoad: yes
 RoxygenNote: 6.0.1
 Encoding: UTF-8
