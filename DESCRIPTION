@@ -1,10 +1,19 @@
 Package: febama
-Type: Package
 Title: Feature-based Bayesian Forecasting Model Averaging
-Version: 0.1
-Date: 2021-08-01
-Author: Li Li, Feng Li, Yanfei Kang
-Maintainer: Li Li
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Li",
+           family = "Li",
+           role = "aut",
+           email = "by1908007@buaa.edu.cn")
+    person(given = "Feng",
+           family = "Li",
+           role = "cre",
+           email = "feng.li@cufe.edu.cn")
+    person(given = "Yanfei",
+           family = "Kang",
+           role = "cre",
+           email = "yanfeikang@buaa.edu.cn")
 Description: This package describes a novel framework for density forecast combination by constructing time-varying weights based on time series features. The method estimates weights in the forecast combination via Bayesian log predictive scores from historical information. 
 License: GPL (>=2.0)
 Depends: R (>= 3.2.0)
@@ -15,6 +24,7 @@ Imports: tsfeatures,
          parallel,
          doParallel,
          foreach
-LazyLoad: yes
-RoxygenNote: 6.0.1
 Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
