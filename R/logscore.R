@@ -1,372 +1,148 @@
-#' Inference procedure of FEBAMA framework
-#' 
-#' In the inference procedure, we take the MAP estimation with the standard BFGS algorithm.
-#' If variable selection is considered (\code{model_conf$algArgs$nIter > 1}) simultaneously with MAP, 
-#' we utilize the Gibbs sampler to perform variable selection over all forecasting models.  
+#' Calculate the log predictive score
 #'
+#' Calculate the log predictive score of a time series for FEBAMA framework. 
+#' The weights in forecast combination are related to time series features.
+#' 
 #' @param data A list with \code{lpd} and \code{feat} 
 #' (the output of function \code{lpd_features_multi}).
-#' @param model_conf Parameter settings of FEBAMA framework. Defualt \code{model_conf_default()}.
+#' @param beta A list of coefficient vectors of the features.
+#' @param betaIdx A list of indicator vectors. 
+#' @param features_used The features used for forecast combination. 
+#' See the parameter seting for more information.
+#' @param sum If TRUE, return the sume of log predictive densities.
 #' 
-#' @return \code{febama_mcmc} returns a list with the entries:
-#' \describe{
-#'   \item{beta}{A list of (number of models -1) matrices of beta in every iteration. }
-#'   \item{betaIdx}{A list of (number of models -1) matrices of betaIdx in every iteration.}
-#'   \item{accept_prob}{A list of (number of models -1) matrices of accept probabilities in every iteration.}
-#' }
+#' @return \code{logscore} returns the value of log predictive score.
 #' @export
-febama_mcmc <- function(data, model_conf)
+
+logscore <- function(data, beta, betaIdx, features_used, sum = TRUE)
 {
-    ## Extract arguments
-    algArgs = model_conf$algArgs
-    varSelArgs = model_conf$varSelArgs
-    priArgs = model_conf$priArgs
+   if(!is.list(beta))
+    {
+        beta = betaVec2Lst(beta, betaIdx)
+    }
+    
+    prob = exp(data$lpd)
+    prob[prob == 0] <- 1e-16
 
-    nIter = algArgs$nIter
-    num_models_updated = ncol(data$lpd) - 1
+    num_models_updated <- length(betaIdx)
+    nObs = nrow(prob)
 
-    ## Reserve space for OUT beta and initialize variable selection indicators
-    OUT = list()
+    exp_lin = matrix(NA, nObs, num_models_updated + 1)
+
     for(iComp in 1:num_models_updated)
     {
-        ## browser()
-        ## Determine number of features used.
-        nFeat = length(model_conf$features_used[[iComp]]) # default number of features = features_used
+        betaCurr = beta[[iComp]]
+        betaIdxCurr = betaIdx[[iComp]]
+        features_used_curr = features_used[[iComp]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
 
-        ## nFeat = 0 if only intercept is used.
-        if(length(model_conf$features_used[[iComp]]) == 0)
-        {
-            nFeat = 0
-        }
-
-        OUT[["beta"]][[iComp]] = matrix(NA, nIter, nFeat + 1)
-        OUT[["betaIdx"]][[iComp]] = matrix(NA, nIter, nFeat + 1)
-
-        ## Initialize variable selection indicators
-        if(varSelArgs[[iComp]]$init == "all-in")
-        {
-            OUT[["betaIdx"]][[iComp]][1, ] = 1
-        }else if (varSelArgs[[iComp]]$init == "all-out")
-        {
-            OUT[["betaIdx"]][[iComp]][1, ] = 0
-            OUT[["betaIdx"]][[iComp]][1, 1] = 1
-        }else if(varSelArgs[[iComp]]$init == "random")
-        {
-            OUT[["betaIdx"]][[iComp]][1, ] = c(1, rbinom(nFeat, 1, 0.5)) # intercept is always in.
-        }else
-        {
-            stop("No such init for betaIdx!")
-        }
-
-        ## Reserve space for acceptance probabilities with MH corrections
-        OUT[["accept_prob"]][[iComp]] = matrix(1, nIter, 1)
+        me <- features0[, betaIdxCurr == 1, drop = FALSE] %*% matrix(betaCurr[betaIdxCurr == 1])
+        me[me>709] <- 709 # avoid overflow
+        exp_lin[, iComp] = exp(me)
     }
 
-    betaIdx_curr = lapply(OUT[["betaIdx"]], function(x) x[1,])
-    beta_curr = lapply(betaIdx_curr, function(x) rnorm(length(x)))
+    ## Villani, M., Kohn, R., & Giordani, P. (2009). Regression density estimation
+    ## using smooth adaptive Gaussian mixtures. Journal of Econometrics, 153(2),
+    ## 155-173.
+    exp_lin[, num_models_updated + 1] = 1 # assume last model is 1
+    weights <- exp_lin/ rowSums(exp_lin) # T-by-n, assuming last is deterministic
+    out = log(rowSums(weights * prob))
 
-    ## Numeric optimization to obtain MAP (Maximum a Posteriori)
-    if(algArgs$initOptim == TRUE)
+    if(sum == TRUE)
     {
-        beta_optim = optim(unlist(beta_curr), fn = log_posterior,
-                           data = data,
-                           betaIdx = betaIdx_curr,
-                           priArgs = priArgs,
-                           varSelArgs = varSelArgs,
-                           features_used = model_conf$features_used,
-                           method = "BFGS",
-                           control = list(fnscale = -1, maxit = 1000))
-        if( beta_optim$convergence != 0){
-            stop("The optimization of initial values is not convergent")
-        }
-        beta_curr = betaVec2Lst(beta_optim$par, betaIdx_curr)
+        out = sum(out)
     }
 
-    ## Assign initial values (conditional of variable selections)
-    OUT[["beta"]] = mapply(function(x, y){
-        x[1, ] = y
-        return(x)
-    }, x = OUT[["beta"]], y = beta_curr, SIMPLIFY = FALSE)
-                       
-    if(nIter > 1){
-    for (iIter in 2:nIter)
-    { # Loop start with the second iteration. 
-      # The first iteration is considered as initial values.
-      
-      # SGLD did not seem to work well in our experiments, so we use simple MAP here. 
-      if(algArgs$algName == "sgld"){
-        beta_betaIdx <-  SGLD_gibbs(data = data,  beta_curr = beta_curr,
-                                    betaIdx_curr = betaIdx_curr, model_conf = model_conf)
-      }else if(algArgs$algName == "MAP"){
-        beta_betaIdx <-  MAP_gibbs(data = data,  beta_curr = beta_curr,
-                                    betaIdx_curr = betaIdx_curr, model_conf = model_conf)
-      }
-
-        ## Extract parameters for loop use
-        beta_curr = beta_betaIdx[["beta"]]
-        betaIdx_curr = beta_betaIdx[["betaIdx"]]
-        accept_prob_curr = beta_betaIdx[["accept_prob"]]
-
-        ## Assign the final output
-        OUT[["beta"]] = mapply(function(x, y){
-            x[iIter, ] = y
-            return(x)
-        }, x = OUT[["beta"]], y = beta_betaIdx[["beta"]], SIMPLIFY = FALSE)
-
-        OUT[["betaIdx"]] = mapply(function(x, y){
-            x[iIter, ] = y
-            return(x)
-        }, x = OUT[["betaIdx"]], y = beta_betaIdx[["betaIdx"]], SIMPLIFY = FALSE)
-
-        OUT[["accept_prob"]] = mapply(function(x, y){
-            x[iIter, ] = y
-            return(x)
-        }, x = OUT[["accept_prob"]], y = beta_betaIdx[["accept_prob"]], SIMPLIFY = FALSE)
-    
-    }
-    }
-    return(OUT)
-}
-
-
-# Variable selection using MAP with Gibbs
-MAP_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
-{
-
-    priArgs = model_conf$priArgs
-    varSelArgs = model_conf$ varSelArgs
-
-    features_used = model_conf$features_used
-
-    num_models_updated = ncol(data$lpd) - 1
-
-    beta_prop = beta_curr
-    betaIdx_prop = betaIdx_curr
-    accept_prob = list()
-    for (iComp in 1:num_models_updated)
-    {
-        nPar_full = length(betaIdx_curr[[iComp]])
-
-        betaIdx_prop[[iComp]] = c(1, rbinom(nPar_full - 1, 1, prob = 0.5))
-
-        beta_optim = optim(unlist(beta_prop[[iComp]]), fn = log_posterior_comp,
-                           data = data,
-                           beta = beta_prop,
-                           betaIdx = betaIdx_prop,
-                           priArgs = priArgs,
-                           varSelArgs = varSelArgs,
-                           features_used = model_conf$features_used,
-                           model_update = iComp,
-                           method = "BFGS",
-                           control = list(fnscale = -1, maxit = 1000))
-        if( beta_optim$convergence != 0){
-          stop("The optimization of MAP is not convergent")
-        }
-        
-        beta_prop[[iComp]] = beta_optim$par
-        beta_prop[[iComp]][betaIdx_prop[[iComp]] == 0] = 0
-
-        ## Metropolis-Hasting accept/reject for variable selection
-        if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
-        {
-            log_post_prop = log_posterior(data = data,
-                                          beta = beta_prop,
-                                          betaIdx = betaIdx_prop,
-                                          priArgs = priArgs,
-                                          varSelArgs = varSelArgs,
-                                          features_used = features_used,
-                                          model_update = iComp)
-            log_post_curr = log_posterior(data = data,
-                                          beta = beta_curr,
-                                          betaIdx = betaIdx_curr,
-                                          priArgs = priArgs,
-                                          varSelArgs = varSelArgs,
-                                          features_used = features_used,
-                                          model_update = iComp)
-
-
-            ## The jump density for the variable selection indicators. TODO: Add adaptive scheme
-            logJump.Idx.currATprop <- 1
-            logJump.Idx.propATcurr <- 1
-
-            logMHRatio <- (log_post_prop - log_post_curr +
-                           logJump.Idx.currATprop - logJump.Idx.propATcurr)
-
-
-            if(is.na(logMHRatio))
-            { ## bad proposal, i.e logJump.currATpropRev = -Inf, or logJump.propATprop = -Inf
-                accept_prob_curr <- 0
-            } else{
-                accept_prob_curr <- exp(min(0, logMHRatio))
-            }
-
-            if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
-            {  ## keep the proposal
-                beta_curr[[iComp]] <- beta_prop[[iComp]]
-                betaIdx_curr[[iComp]] <- betaIdx_prop[[iComp]]
-            }
-            else
-            { ## keep the current
-                beta_prop[[iComp]] = beta_curr[[iComp]]
-                betaIdx_prop[[iComp]] = betaIdx_curr[[iComp]]
-            }
-        }
-        else
-        {
-            accept_prob_curr = 1 # SGLD always accepts
-            beta_curr[[iComp]] <- beta_prop[[iComp]] ## Accepted
-            ## betaIdx_curr unchanged.
-        }
-        accept_prob[[iComp]] <- accept_prob_curr
-        
-    }
-
-    out = list(beta = beta_curr, betaIdx = betaIdx_curr, 
-               accept_prob = accept_prob)
     return(out)
 }
 
-
-
-SGLD_gibbs <- function(data, beta_curr, betaIdx_curr, model_conf)
+# When only optimize the coefficients of a particular model. 
+logscore_comp <- function(data, beta_comp, beta, betaIdx, features_used, sum = TRUE, model_update)
 {
-  nObs = nrow(data$lpd)
-  #nEpoch = model_conf$algArgs$sgld$nEpoch
-  stepsize = model_conf$algArgs$sgld$stepsize
-  burninProp = model_conf$algArgs$sgld$burninProp
-  
-  priArgs = model_conf$priArgs
-  varSelArgs = model_conf$varSelArgs
-  
-  features_used = model_conf$features_used
-  
-  max_batchSize = model_conf$algArgs$sgld$max_batchSize
-  batchSize = min(nObs, max_batchSize)
-  Batch = round(nObs/batchSize)
-  nEpoch = round(200 / nBatch)
-  
-  num_models_updated = ncol(data$lpd) - 1
-  
-  beta_prop = beta_curr
-  betaIdx_prop = betaIdx_curr
-  
-  beta_sgld = list()
-  for (iComp in 1:num_models_updated)
-  {
-    nPar_full = length(betaIdx_curr[[iComp]])
-    
-    ## 1. propose an update of variable selection indicators. Random proposal when
-    ## variable selection is enabled: NOT NULL.
-    if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
+    if(!is.list(beta))
     {
-      betaIdx_prop[[iComp]] = c(1, rbinom(nPar_full - 1, 1, prob = 0.5))
+        beta = betaVec2Lst(beta, betaIdx)
     }
     
-    ## 2. conditional on this variable selection indicators, update beta via SGLD
-    beta_iComp_sgld = matrix(0, nEpoch * nBatch, nPar_full)
-    for (iIter in 1:(nEpoch * nBatch))
+    prob = exp(data$lpd)
+    prob[prob == 0] <- 1e-16
+    
+    num_models_updated <- length(betaIdx)
+    nObs = nrow(prob)
+    
+    exp_lin = matrix(NA, nObs, num_models_updated + 1)
+    
+    for(iComp in 1:num_models_updated)
     {
-      ## SGLD settings
-      if(is.na(stepsize)){ # decay stepsize
-        a = model_conf$algArgs$sgld$a
-        b = model_conf$algArgs$sgld$b
-        gama = model_conf$algArgs$sgld$gama
-        stepsize <- a * (b + iIter) ^ (-gama)
-      }
-      
-      ## Re-split the data into small batches after finish one complete epoch.
-      if(iIter %in% seq(1, nEpoch * nBatch, nBatch))
-      {
-        iBatch = 0
-        dataIdxLst = suppressWarnings(split(sample(1:nObs,nObs),1:nBatch))
-      }
-      iBatch = iBatch + 1
-      
-      data_curr = lapply(data[c("lpd","feat")], function(x) x[dataIdxLst[[iBatch]], ,drop=FALSE])
-      batchRatio = length(dataIdxLst[[iBatch]]) / nObs # n/N
-      
-      grad_iComp = log_posterior_grad(data = data_curr,
-                                      beta = beta_prop,
-                                      betaIdx = betaIdx_prop,
-                                      priArgs = priArgs,
-                                      varSelArgs = varSelArgs,
-                                      features_used = features_used,
-                                      model_update = iComp,
-                                      batchRatio = batchRatio)[[1]]
-      
-      ## SGLD
-      nPar1 = sum(betaIdx_prop[[iComp]]) # length of non-zero parameters
-      beta_new <- (as.vector(beta_prop[[iComp]][betaIdx_prop[[iComp]] == 1] + stepsize / 2 * grad_iComp) +
-                     as.vector(mvtnorm::rmvnorm(1, rep(0, nPar1), stepsize* diag(nPar1))))
-      
-      beta_iComp_sgld[iIter, betaIdx_prop[[iComp]] == 1] = beta_new
-      
-      beta_prop[[iComp]][betaIdx_prop[[iComp]] == 1] = beta_new
-      betaIdx_prop[[iComp]][betaIdx_prop[[iComp]] == 0] = 0
+        if(iComp == model_update){
+            betaCurr = beta_comp
+        }else{
+            betaCurr = beta[[iComp]]
+        }
+        betaIdxCurr = betaIdx[[iComp]]
+        features_used_curr = features_used[[iComp]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
+        
+        me <- features0[, betaIdxCurr == 1, drop = FALSE] %*% matrix(betaCurr[betaIdxCurr == 1])
+        me[me>709] <- 709 # avoid overflow
+        exp_lin[, iComp] = exp(me)
     }
     
-    ## Polyak-Ruppert averaging improve the efficiency of SGLD
-    burnin = 1:(ceiling(burninProp * nEpoch * nBatch))
-    beta_prop[[iComp]] = colMeans(beta_iComp_sgld[-burnin,, drop = FALSE])
-    beta_sgld[[iComp]] = beta_iComp_sgld
+    exp_lin[, num_models_updated + 1] = 1 # assume last model is 1
+    weights <- exp_lin/ rowSums(exp_lin) # T-by-n, assuming last is deterministic
+    out = log(rowSums(weights * prob))
     
-    ## Metropolis-Hasting accept/reject for variable selection
-    if(length(model_conf$varSelArgs[[iComp]]$cand) > 0)
+    if(sum == TRUE)
     {
-      log_post_prop = log_posterior(data = data,
-                                    beta = beta_prop,
-                                    betaIdx = betaIdx_prop,
-                                    priArgs = priArgs,
-                                    varSelArgs = varSelArgs,
-                                    features_used = features_used,
-                                    model_update = iComp)
-      log_post_curr = log_posterior(data = data,
-                                    beta = beta_curr,
-                                    betaIdx = betaIdx_curr,
-                                    priArgs = priArgs,
-                                    varSelArgs = varSelArgs,
-                                    features_used = features_used,
-                                    model_update = iComp)
-      
-      
-      ## The jump density for the variable selection indicators. TODO: Add adaptive scheme
-      logJump.Idx.currATprop <- 1
-      logJump.Idx.propATcurr <- 1
-      
-      logMHRatio <- (log_post_prop - log_post_curr +
-                       logJump.Idx.currATprop - logJump.Idx.propATcurr)
-      
-      
-      if(is.na(logMHRatio))
-      { ## bad proposal, i.e logJump.currATpropRev = -Inf, or logJump.propATprop = -Inf
-        accept_prob_curr <- 0
-      }
-      else
-      {
-        accept_prob_curr <- exp(min(0, logMHRatio))
-      }
-      
-      if(runif(1) < accept_prob_curr) #!is.na(accept.prob.curr)
-      {  ## keep the proposal
-        beta_curr[[iComp]] <- beta_prop[[iComp]]
-        betaIdx_curr[[iComp]] <- betaIdx_prop[[iComp]]
-      }
-      else
-      { ## keep the current
-        beta_prop[[iComp]] = beta_curr[[iComp]]
-        betaIdx_prop[[iComp]] = betaIdx_curr[[iComp]]
-      }
-    }
-    else
-    {
-      accept_prob_curr = 1 # SGLD always accepts
-      beta_curr[[iComp]] <- beta_prop[[iComp]] ## Accepted
-      ## betaIdx_curr unchanged.
+        out = sum(out)
     }
     
-  }
-  
-  out = list(beta = beta_curr, betaIdx = betaIdx_curr, 
-             accept_prob = accept_prob_curr, beta_sgld = beta_sgld)
-  return(out)
+    return(out)
+}
+
+# Gradient of the log score with respect to given models
+
+logscore_grad <- function(data, beta, betaIdx, features_used, model_update = 1:length(betaIdx))
+{
+
+    prob = exp(data$lpd)
+    prob[prob == 0] <- 1e-16
+
+    num_models_updated <- ncol(prob) - 1
+    nObs = nrow(prob)
+
+    exp_lin = matrix(NA, nObs, num_models_updated + 1)
+    exp_lin[, num_models_updated + 1] = 1 # assume last model is 1
+
+    for(iComp in 1:num_models_updated)
+    {
+        betaCurr = beta[[iComp]]
+        betaIdxCurr = betaIdx[[iComp]]
+        features_used_curr = features_used[[iComp]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
+
+        me <- features0[, betaIdxCurr == 1, drop = FALSE] %*% matrix(betaCurr[betaIdxCurr == 1])
+        me[me>709] <- 709 # avoid overflow
+        exp_lin[, iComp] = exp(me)
+    }
+
+    exp_sum = rowSums(exp_lin) # length-T vector
+    exp_p_sum = rowSums(exp_lin * prob) # T-by-1
+
+    ## The gradient wrt me=x'beta
+    grad0 = exp_lin[, model_update, drop = FALSE] * (prob[, model_update, drop = FALSE] * exp_sum -
+                                      exp_p_sum) / (exp_sum * exp_p_sum) # T-by-length(model_caller)
+
+    ## The gradient wrt beta
+    out = list()
+    iCompdx = 0
+    for(iComp in model_update)
+    {
+        iCompdx = iCompdx + 1
+        features_used_curr = features_used[[iComp]]
+        betaIdxCurr = betaIdx[[iComp]]
+        features0 = cbind(rep(1, nObs), data$feat[, features_used_curr, drop = FALSE])
+        out[[iCompdx]] = colSums(grad0[, iCompdx] * features0[, betaIdxCurr == 1, drop = FALSE])
+    }
+    return(out)
 }
