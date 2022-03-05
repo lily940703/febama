@@ -119,6 +119,35 @@ egarch_fore <- function(x, train_h, PI_level) {
               egarch_fore_sd = as.numeric(egarch_fore_sd) ))
 }
 
+#' The forecasting model realized GARCH basd on \code{rugarch} package
+#' The realized volatility is represented by the realized variance in this work.
+#' @param x The input time series.
+#' @param train_h The amount of future time steps to forecast.
+#' @param PI_level This function don't use it in the calculation.
+#' This is used to make this function consistent with the parameter setting of the top four models.
+#'
+#' @return A list including forecasting mean and sd.
+#' @export
+rgarch_fore <- function(x, train_h, PI_level) {
+  spec = ugarchspec(mean.model = list(armaOrder = c(0, 0), 
+                                      include.mean = T), 
+                    variance.model = list(model = 'realGARCH', 
+                                          garchOrder = c(1, 1)))
+  date = seq.Date(from = as.Date("2012/01/01",format = "%Y/%m/%d"), 
+           by = "day", length.out = length(x))
+  ts = xts(x, order.by = date)
+  rv = highfrequency::rRVar(ts)
+  myfit_e = ugarchfit(spec, ts, solver = 'hybrid',realizedVol = sqrt(rv))
+  options(warn =-1)
+  fore = rugarch::ugarchforecast(myfit_e, n.ahead=train_h)
+  rm(myfit_e)
+  rgarch_fore_mean <- fitted(fore)
+  rgarch_fore_sd <- sigma(fore)
+  rm(fore)
+  return(list(rgarch_fore_mean = as.numeric(rgarch_fore_mean),
+              rgarch_fore_sd = as.numeric(rgarch_fore_sd) ))
+}
+
 
 #' The forecasting model garch basd on \code{stochvol} package
 #'
