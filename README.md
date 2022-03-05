@@ -75,11 +75,11 @@ model_conf_curr$algArgs$nIter = 1
 data_example_fore = forecast_feature_results_multi(ts = data_example, model_conf = model_conf_curr,
                                                    data = lpd_features, beta_out = parameters)
 
-cat("The average LS and MASE of the example data based on FEBAMA method are \n", data_example_fore$err_feature[1:2])
+cat("The average LS and MASE of the example data based on FEBAMA method are \n", data_example_fore$err_feature[1]/18, data_example_fore$err_feature[2])
 
 # (2) For FEBAMA+VS
 model_conf_curr$algArgs$nIter = 50
 data_example_fore_vs = forecast_feature_results_multi(ts = data_example, model_conf = model_conf_curr,
                                data = lpd_features, beta_out = parameters_vs)
-cat("The average LS and MASE of the example data based on FEBAMA+VS method are \n", data_example_fore_vs$err_feature[1:2])
+cat("The average LS and MASE of the example data based on FEBAMA+VS method are \n", data_example_fore_vs$err_feature[1]/18,data_example_fore_vs$err_feature[2])
 ```
