@@ -2,7 +2,26 @@
 
 ## Notice to users: 
 
-A better maitained version is now available at coauthor's github https://github.com/feng-li/febama
+A better maitained R version is now available at coauthor's github https://github.com/feng-li/febama
+
+## Python Port
+
+The FEBAMA workflow has been ported to Python as [`gsm.febama`](https://github.com/feng-li/gsm), a submodule of the
+general smooth-mixture package `gsm`. The Python port keeps the FEBAMA idea of feature-driven Bayesian forecast
+averaging, but places it inside the broader GSM/MoE codebase with JAX-based scoring, standard Python data tooling, and
+pluggable predictive distributions.
+
+New Python development should target the `gsm.febama` module. This R package
+remains the original implementation and a reference for API behavior, S&P 500
+examples, feature construction, and paper replication checks.
+
+In the Python `gsm` repository, install and run the current FEBAMA example
+with:
+
+```sh
+python -m pip install -e ".[dev,febama]"
+python scripts/run_febama_example.py --max-origins 4 --test-size 1 --max-iter 100
+```
 
 ## Short Introduction
 
